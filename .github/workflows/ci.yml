@@ -29,7 +29,8 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - run: pip install -e ".[dev]"
+      # The ml extra (CPU-only torch) is needed for type-checking and the KT/offline tests.
+      - run: pip install --extra-index-url https://download.pytorch.org/whl/cpu -e ".[dev,ml]"
       - name: Lint
         run: |
           ruff check mentora tests scripts alembic
@@ -59,6 +60,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - run: pip install -e ".[dev]"
+      # The ml extra (CPU-only torch) is needed for type-checking and the KT/offline tests.
+      - run: pip install --extra-index-url https://download.pytorch.org/whl/cpu -e ".[dev,ml]"
       - name: Migrations and pgvector round-trip
         run: pytest -m postgres
