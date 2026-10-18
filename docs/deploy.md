@@ -158,15 +158,22 @@ so the deployed app calls your computer through a tunnel. Tutor replies only wor
 your computer, Ollama, the gateway and the tunnel are all running; otherwise tutor turns
 fail after the timeout (switch back to `offline` when you stop).
 
-1. Pick a long random token. Start the gateway (never tunnel Ollama's port 11434 itself:
-   its API can pull and delete models):
-   `python scripts/ollama_gateway.py --token <token>` (listens on 127.0.0.1:11435).
-2. In a second terminal, start a tunnel to the gateway, e.g. a free Cloudflare quick
-   tunnel (no account): `cloudflared tunnel --url http://127.0.0.1:11435`. It prints an
-   `https://<random>.trycloudflare.com` URL, which changes on every restart.
-3. On Render set: `MENTORA_LLM__BACKEND=local`, `MENTORA_LLM__LOCAL_MODEL=llama3.2:3b`,
-   `MENTORA_LOCAL_LLM_BASE_URL=https://<random>.trycloudflare.com/v1`,
+1. Sign up at <https://ngrok.com> (free, no card; 1 permanent dev domain, 20k requests and
+   1 GB per month) and save the authtoken:
+   `& "$env:LOCALAPPDATA\ngrok\ngrok.exe" config add-authtoken <token>` (agent from
+   <https://ngrok.com/download>, unzipped to `%LOCALAPPDATA%\ngrok`).
+2. Put a long random token and your domain in the git-ignored `.env`:
+   `OLLAMA_GATEWAY_TOKEN=<token>` and `NGROK_DOMAIN=<name>.ngrok-free.dev`.
+3. Run `powershell -ExecutionPolicy Bypass -File scripts\start_tutor_tunnel.ps1` (or a
+   desktop shortcut to it) after every restart. It starts Ollama if needed, the token
+   gateway on 127.0.0.1:11435 (`scripts/ollama_gateway.py`; never tunnel Ollama's port
+   11434 itself: its API can pull and delete models) and ngrok on the permanent domain,
+   then checks the whole path. The URL never changes, so Render is set once.
+   (A Cloudflare quick tunnel, `cloudflared tunnel --url http://127.0.0.1:11435`, needs no
+   account but gets a new URL on every restart.)
+4. On Render set: `MENTORA_LLM__BACKEND=local`, `MENTORA_LLM__LOCAL_MODEL=llama3.2:3b`,
+   `MENTORA_LOCAL_LLM_BASE_URL=https://<name>.ngrok-free.dev/v1`,
    `MENTORA_LOCAL_LLM_API_KEY=<token>`, `MENTORA_LLM__TIMEOUT_S=180`,
    `MENTORA_RAG__ANSWER_MODE=open`, `MENTORA_RAG__ANSWER_REGENERATIONS=0`.
    Teacher console → System status shows whether the model is reachable.
-4. To stop: set `MENTORA_LLM__BACKEND=offline` and `MENTORA_RAG__ANSWER_MODE=course_only`.
+5. To stop: set `MENTORA_LLM__BACKEND=offline` and `MENTORA_RAG__ANSWER_MODE=course_only`.
