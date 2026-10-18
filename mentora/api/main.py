@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -11,7 +13,7 @@ from mentora import __version__
 from mentora.api import lti
 from mentora.api.routes import auth, console, health, learner, rag, teacher
 from mentora.config import Settings, get_settings
-from mentora.db import StoreFactory, connect
+from mentora.db import StoreFactory, connect, ensure_schema
 
 STATIC_DIR = Path(__file__).with_name("static")
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
@@ -21,13 +23,24 @@ def create_app(
     settings: Settings | None = None, session_factory: StoreFactory | None = None
 ) -> FastAPI:
     settings = settings or get_settings()
+    own_database = session_factory is None
+    if session_factory is None:
+        # Connecting is lazy; nothing touches the database until the server starts.
+        session_factory = connect(settings.database_url, create_schema=False)
+    factory = session_factory
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        if own_database:
+            ensure_schema(factory.database)  # indexes (idempotent)
+        yield
+
     app = FastAPI(
         title=settings.app.name,
         version=__version__,
         description="Mentora: a Self-Learning Strategy Agent for self-regulated learning.",
+        lifespan=lifespan,
     )
-    if session_factory is None:
-        session_factory = connect(settings.database_url)  # creates indexes (idempotent)
     app.state.settings = settings
     app.state.session_factory = session_factory
     app.state.orchestrator = None
