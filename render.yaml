@@ -1,5 +1,5 @@
 # Render Blueprint: the public demo on Render's free web service (see docs/deploy.md).
-# The database is Neon's free PostgreSQL (Render's free Postgres expires after 30 days).
+# The database is a MongoDB Atlas free M0 cluster in the same region.
 services:
   - type: web
     name: mentora
@@ -10,7 +10,7 @@ services:
     autoDeploy: true
     envVars:
       # Secrets: entered in the Render dashboard, never committed.
-      - key: MENTORA_DATABASE_URL        # postgresql+psycopg://...neon.tech/neondb?sslmode=require
+      - key: MENTORA_DATABASE_URL        # mongodb+srv://mentora_app:...@mentora.<id>.mongodb.net/mentora
         sync: false
       - key: MENTORA_DEV_TEACHER_CODE    # teachers type this on the sign-in page
         sync: false
