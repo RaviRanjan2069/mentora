@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session, sessionmaker
-
+from mentora.db import StoreFactory
 from mentora.db import models as m
 from mentora.rag.grounding import (
     HeuristicClaimDetector,
@@ -105,7 +103,7 @@ def test_regenerates_once_then_passes() -> None:
 
 
 def test_fails_twice_then_uncertain_reply_and_escalation(
-    session_factory: sessionmaker[Session], seeded: dict[str, str]
+    session_factory: StoreFactory, seeded: dict[str, str]
 ) -> None:
     out = grounded_generate(
         lambda _fb: "Python was invented in 1850 by a snake.",
@@ -120,7 +118,8 @@ def test_fails_twice_then_uncertain_reply_and_escalation(
         session_factory, seeded["learner_id"], seeded["session_id"], out.report
     )
     with session_factory() as db:
-        esc = db.scalars(select(m.Escalation).where(m.Escalation.id == esc_id)).one()
+        esc = db.get(m.Escalation, esc_id)
+        assert esc is not None
     assert esc.reason == "grounding_failure" and esc.status == "open"
     assert esc.message is not None and "1850" in esc.message
 

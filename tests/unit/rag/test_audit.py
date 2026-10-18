@@ -4,8 +4,7 @@ import json
 import re
 from pathlib import Path
 
-from sqlalchemy.orm import Session, sessionmaker
-
+from mentora.db import StoreFactory
 from mentora.llm.backends.fake import FakeLLM
 from mentora.llm.client import LLMClient
 from mentora.llm.types import LLMRequest
@@ -26,7 +25,7 @@ def _grounded_answer(req: LLMRequest) -> str:
 
 
 def test_audit_compares_with_and_without_retrieval(
-    session_factory: sessionmaker[Session], ingested: int, embedder: HashingEmbedder
+    session_factory: StoreFactory, ingested: int, embedder: HashingEmbedder
 ) -> None:
     pipeline = RagPipeline(
         HybridRetriever.from_db(session_factory, ingested, embedder, beta=0.4, top_k=20),
@@ -57,7 +56,7 @@ def test_audit_compares_with_and_without_retrieval(
 
 
 def test_recall_uses_expected_passages(
-    session_factory: sessionmaker[Session], ingested: int, embedder: HashingEmbedder
+    session_factory: StoreFactory, ingested: int, embedder: HashingEmbedder
 ) -> None:
     pipeline = RagPipeline(
         HybridRetriever.from_db(session_factory, ingested, embedder, beta=0.4, top_k=20),
@@ -75,7 +74,7 @@ def test_recall_uses_expected_passages(
 
 
 def test_retrieval_only_audit_needs_no_llm(
-    session_factory: sessionmaker[Session], ingested: int, embedder: HashingEmbedder
+    session_factory: StoreFactory, ingested: int, embedder: HashingEmbedder
 ) -> None:
     pipeline = RagPipeline(
         HybridRetriever.from_db(session_factory, ingested, embedder, beta=0.4, top_k=20),

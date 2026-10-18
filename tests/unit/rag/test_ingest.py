@@ -4,10 +4,9 @@ from pathlib import Path
 
 import pytest
 from pptx import Presentation
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session, sessionmaker
 
 from mentora.course import CourseSpec, upsert_course
+from mentora.db import StoreFactory
 from mentora.db import models as m
 from mentora.rag.ingest import (
     PassageDraft,
@@ -129,14 +128,14 @@ def test_pdf_pages(tmp_path: Path, course: CourseSpec) -> None:
 
 
 def test_store_replaces_passages_from_same_source(
-    session_factory: sessionmaker[Session], course: CourseSpec, passages: list[PassageDraft]
+    session_factory: StoreFactory, course: CourseSpec, passages: list[PassageDraft]
 ) -> None:
     with session_factory.begin() as db:
         course_id = upsert_course(db, course).id
     store_passages(session_factory, course_id, passages)
     store_passages(session_factory, course_id, passages)  # re-ingest: no duplicates
     with session_factory() as db:
-        n = db.scalar(select(func.count()).select_from(m.CorpusPassage))
+        n = db.count(m.CorpusPassage)
         stored = db.get(m.CorpusPassage, passages[0].id)
     assert n == len(passages)
     assert stored is not None and stored.embedding is not None
@@ -144,14 +143,14 @@ def test_store_replaces_passages_from_same_source(
 
 
 def test_upsert_course_creates_prerequisite_edges(
-    session_factory: sessionmaker[Session], course: CourseSpec
+    session_factory: StoreFactory, course: CourseSpec
 ) -> None:
     with session_factory.begin() as db:
         upsert_course(db, course)
         upsert_course(db, course)  # idempotent
     with session_factory() as db:
-        assert db.scalar(select(func.count()).select_from(m.Concept)) == len(course.concepts)
-        edges = db.execute(select(m.concept_prerequisites)).all()
+        assert db.count(m.Concept) == len(course.concepts)
+        edges = [p for c in db.find(m.Concept) for p in c.prerequisite_ids]
     assert len(edges) == sum(len(c.prereqs) for c in course.concepts)
 
 

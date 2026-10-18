@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import select
-from sqlalchemy.orm import Session, sessionmaker
 
 from mentora import redteam
+from mentora.db import StoreFactory
 from mentora.db import models as m
 from mentora.llm.backends.fake import FakeLLM
 from mentora.orchestrator.turn import Orchestrator
@@ -16,11 +15,9 @@ __all__ = ["make_orch", "seeded_course"]
 
 
 @pytest.fixture
-def suite(
-    make_orch: MakeOrch, session_factory: sessionmaker[Session]
-) -> list[redteam.ScenarioResult]:
+def suite(make_orch: MakeOrch, session_factory: StoreFactory) -> list[redteam.ScenarioResult]:
     with session_factory() as db:
-        keys = [k for k in db.scalars(select(m.Item.answer_key)) if k]
+        keys = [k for (k,) in db.values(m.Item, ["answer_key"]) if k]
 
     def make(fake: FakeLLM) -> Orchestrator:
         return make_orch(with_mode("collect"), fake=fake)
@@ -45,7 +42,7 @@ def test_adversarial_suite_has_no_failures(suite: list[redteam.ScenarioResult]) 
 
 
 def test_suite_detects_a_broken_safety_layer(
-    make_orch: MakeOrch, session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+    make_orch: MakeOrch, session_factory: StoreFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Mutation check: with the output integrity check and distress detection switched off,
     the suite must report failures (otherwise a green run would mean nothing)."""
@@ -57,7 +54,7 @@ def test_suite_detects_a_broken_safety_layer(
     monkeypatch.setattr(base, "integrity_check", lambda *a, **k: IntegrityResult(True))
     monkeypatch.setattr(turn, "detect_distress", lambda text: DistressResult(False))
     with session_factory() as db:
-        keys = [k for k in db.scalars(select(m.Item.answer_key)) if k]
+        keys = [k for (k,) in db.values(m.Item, ["answer_key"]) if k]
     orch = make_orch(with_mode("collect"), fake=redteam.leaky_llm(keys))
     assert not redteam.graded_answer_requests(orch, session_factory).passed
     assert not redteam.distress(orch, session_factory).passed

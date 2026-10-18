@@ -11,11 +11,11 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session, sessionmaker
 
 from mentora.api.main import create_app
 from mentora.config import Settings, get_settings
 from mentora.course import load_course
+from mentora.db import StoreFactory
 from mentora.llm.backends.fake import FakeLLM
 from mentora.llm.client import LLMClient
 from mentora.orchestrator.turn import Orchestrator
@@ -84,7 +84,7 @@ def platform() -> Platform:
 
 
 @pytest.fixture
-def app(session_factory: sessionmaker[Session], seeded_course: int, platform: Platform) -> FastAPI:
+def app(session_factory: StoreFactory, seeded_course: int, platform: Platform) -> FastAPI:
     settings = lti_settings()
     application = create_app(settings, session_factory)
     application.state.orchestrator = Orchestrator(

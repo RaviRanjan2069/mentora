@@ -5,10 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, sessionmaker
 
+from mentora.db import IntegrityError, StoreFactory
 from mentora.db import models as m
 from mentora.logging_xapi.lrs_client import SqlLRSClient, StatementConflictError
 from mentora.logging_xapi.statements import (
@@ -23,9 +21,7 @@ from mentora.logging_xapi.statements import (
 T0 = datetime(2026, 10, 1, 9, 0, tzinfo=UTC)
 
 
-def test_full_turn_roundtrip(
-    session_factory: sessionmaker[Session], seeded: dict[str, str]
-) -> None:
+def test_full_turn_roundtrip(session_factory: StoreFactory, seeded: dict[str, str]) -> None:
     lid, sid = seeded["learner_id"], seeded["session_id"]
     lrs = SqlLRSClient(session_factory)
 
@@ -89,9 +85,9 @@ def test_full_turn_roundtrip(
             False,
         )
         assert row.timestamp == T0 + timedelta(seconds=6)
-        learner_rows = db.scalars(select(m.Event).where(m.Event.action_id.is_(None))).all()
+        learner_rows = db.find(m.Event, {"action_id": None})
         assert len(learner_rows) == 2
-        tr = db.scalars(select(m.Transition)).one()
+        (tr,) = db.find(m.Transition)
         assert tr.reward is None and tr.next_state is None  # filled at the next step
 
     assert [s.verb.display["en-US"] for s in lrs.query(learner_id=lid, verb="answered")] == [
@@ -101,7 +97,7 @@ def test_full_turn_roundtrip(
 
 
 def test_storing_same_statement_twice_is_idempotent(
-    session_factory: sessionmaker[Session], seeded: dict[str, str]
+    session_factory: StoreFactory, seeded: dict[str, str]
 ) -> None:
     lrs = SqlLRSClient(session_factory)
     st = learner_message(seeded["learner_id"], seeded["session_id"], 1, "hi", timestamp=T0)
@@ -117,7 +113,7 @@ def test_storing_same_statement_twice_is_idempotent(
 
 
 def test_db_rejects_out_of_range_propensity(
-    session_factory: sessionmaker[Session], seeded: dict[str, str]
+    session_factory: StoreFactory, seeded: dict[str, str]
 ) -> None:
     with pytest.raises(IntegrityError), session_factory.begin() as db:
         db.add(
@@ -133,6 +129,6 @@ def test_db_rejects_out_of_range_propensity(
         )
 
 
-def test_unknown_learner_cannot_log(session_factory: sessionmaker[Session]) -> None:
+def test_unknown_learner_cannot_log(session_factory: StoreFactory) -> None:
     with pytest.raises(IntegrityError):
         SqlLRSClient(session_factory).store(learner_message("lrn_ghost", None, 1, "hi"))  # type: ignore[arg-type]

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import numpy as np
-from sqlalchemy.orm import Session, sessionmaker
 
+from mentora.db import StoreFactory
 from mentora.rag.embeddings import HashingEmbedder
 from mentora.rag.ingest import PassageDraft
 from mentora.rag.rerank import LexicalReranker, RagPipeline
@@ -54,7 +54,7 @@ def test_max_week_hides_later_material(
 
 
 def test_pipeline_reranks_to_top4(
-    session_factory: sessionmaker[Session], ingested: int, embedder: HashingEmbedder
+    session_factory: StoreFactory, ingested: int, embedder: HashingEmbedder
 ) -> None:
     retriever = HybridRetriever.from_db(session_factory, ingested, embedder, beta=0.4, top_k=20)
     pipeline = RagPipeline(retriever, LexicalReranker(), top_k=4)

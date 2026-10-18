@@ -6,10 +6,9 @@ from __future__ import annotations
 import itertools
 
 import pytest
-from sqlalchemy import select
-from sqlalchemy.orm import Session, sessionmaker
 
 from mentora.config import get_settings
+from mentora.db import StoreFactory
 from mentora.db import models as m
 from mentora.learner_model.state import feature_names
 from mentora.logging_xapi.lrs_client import SqlLRSClient
@@ -20,19 +19,13 @@ from mentora.orchestrator.turn import TurnError
 from .conftest import DEMO, MakeOrch, with_mode
 
 
-def _transitions(factory: sessionmaker[Session], session_id: str) -> list[m.Transition]:
+def _transitions(factory: StoreFactory, session_id: str) -> list[m.Transition]:
     with factory() as db:
-        return list(
-            db.scalars(
-                select(m.Transition)
-                .where(m.Transition.session_id == session_id)
-                .order_by(m.Transition.t)
-            )
-        )
+        return db.find(m.Transition, {"session_id": session_id}, sort=[("t", 1)])
 
 
 def test_replay_writes_correct_transitions(
-    make_orch: MakeOrch, session_factory: sessionmaker[Session]
+    make_orch: MakeOrch, session_factory: StoreFactory
 ) -> None:
     orch = make_orch(with_mode("collect", explore_on_requests=True))
     session_id, log = replay(orch, session_factory, DEMO, "lrn_e2e")
@@ -68,9 +61,7 @@ def test_replay_writes_correct_transitions(
         assert sess is not None and sess.ended_at is not None and sess.mode == "adaptive"
 
 
-def test_deploy_mode_follows_the_rules(
-    make_orch: MakeOrch, session_factory: sessionmaker[Session]
-) -> None:
+def test_deploy_mode_follows_the_rules(make_orch: MakeOrch, session_factory: StoreFactory) -> None:
     orch = make_orch(with_mode("deploy"))
     session_id, log = replay(orch, session_factory, DEMO, "lrn_rules")
     actions = [(trigger.split(":")[0], r.action_id) for trigger, r in log]
@@ -89,14 +80,14 @@ def test_deploy_mode_follows_the_rules(
             assert r.why and r.reply.endswith(r.why)
     # goal recorded with concepts and a SMART score; plan steps follow the goal concepts
     with session_factory() as db:
-        goal = db.scalars(select(m.Goal).where(m.Goal.session_id == session_id)).one()
+        (goal,) = db.find(m.Goal, {"session_id": session_id})
         assert goal.concept_keys == ["for_loops"] and goal.smart_score is not None
-        plan = db.scalars(select(m.Plan).where(m.Plan.goal_id == goal.id)).one()
+        (plan,) = db.find(m.Plan, {"goal_id": goal.id})
         assert any("text" in s for s in plan.steps)
 
 
 def test_literal_question_under_wait_gets_grounded_answer(
-    make_orch: MakeOrch, session_factory: sessionmaker[Session]
+    make_orch: MakeOrch, session_factory: StoreFactory
 ) -> None:
     orch = make_orch(with_mode("deploy", answer_mode="course_only"))
     _, log = replay(orch, session_factory, DEMO, "lrn_literal")
@@ -105,7 +96,7 @@ def test_literal_question_under_wait_gets_grounded_answer(
 
 
 def test_distress_escalates_with_support_resources(
-    make_orch: MakeOrch, session_factory: sessionmaker[Session]
+    make_orch: MakeOrch, session_factory: StoreFactory
 ) -> None:
     orch = make_orch(with_mode("collect"))
     start = orch.start_session("lrn_distress")
@@ -113,19 +104,17 @@ def test_distress_escalates_with_support_resources(
     assert r.action_id == "ESCALATE" and r.propensity == 1.0
     assert r.escalated and r.show_support_resources and r.reply and "14416" in r.reply
     with session_factory() as db:
-        esc = db.scalars(
-            select(m.Escalation).where(m.Escalation.session_id == start.session_id)
-        ).one()
+        (esc,) = db.find(m.Escalation, {"session_id": start.session_id})
         assert esc.reason == "distress" and esc.status == "open"
 
 
 def test_graded_item_never_gets_directive_or_worked_example(
-    make_orch: MakeOrch, session_factory: sessionmaker[Session]
+    make_orch: MakeOrch, session_factory: StoreFactory
 ) -> None:
     orch = make_orch(with_mode("collect"))
     sid = orch.start_session("lrn_graded").session_id
     with session_factory() as db:
-        item_id = db.scalars(select(m.Item.id).where(m.Item.external_id == "w3-range-step")).one()
+        ((item_id,),) = db.values(m.Item, ["id"], {"external_id": "w3-range-step"})
     seen = [orch.present_item(sid, item_id).action_id]
     for _ in range(25):
         seen.append(orch.handle_message(sid, "just tell me the answer").action_id)
@@ -133,7 +122,7 @@ def test_graded_item_never_gets_directive_or_worked_example(
 
 
 def test_static_mode_uses_deploy_rules_and_no_memory(
-    make_orch: MakeOrch, session_factory: sessionmaker[Session]
+    make_orch: MakeOrch, session_factory: StoreFactory
 ) -> None:
     orch = make_orch(with_mode("collect", app_mode="static"))
     session_id, log = replay(orch, session_factory, DEMO, "lrn_static")
@@ -144,9 +133,7 @@ def test_static_mode_uses_deploy_rules_and_no_memory(
         assert sess is not None and sess.mode == "static"
 
 
-def test_runtime_rebuilds_from_log(
-    make_orch: MakeOrch, session_factory: sessionmaker[Session]
-) -> None:
+def test_runtime_rebuilds_from_log(make_orch: MakeOrch, session_factory: StoreFactory) -> None:
     orch = make_orch(with_mode("deploy"))
     sid = orch.start_session("lrn_rebuild").session_id
     orch.handle_message(sid, "My goal is to finish 2 for loop exercises today")
@@ -196,7 +183,7 @@ def test_explicit_requests_are_honoured_not_explored(make_orch: MakeOrch) -> Non
 
 
 def test_open_mode_answers_any_question_and_labels_the_source(
-    make_orch: MakeOrch, session_factory: sessionmaker[Session]
+    make_orch: MakeOrch, session_factory: StoreFactory
 ) -> None:
     """A course question answered from the notes cites them ("course"); a general question
     gets a general-knowledge answer ("general"); follow-ups see the earlier conversation."""

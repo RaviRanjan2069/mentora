@@ -9,10 +9,9 @@ import numpy as np
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-from sqlalchemy import select
-from sqlalchemy.orm import Session, sessionmaker
 
 from mentora.config import get_settings
+from mentora.db import StoreFactory
 from mentora.db import models as m
 from mentora.offline.fairness import fairness_check
 from mentora.offline.ope_dr import OPEResult, evaluate, rule_target
@@ -202,7 +201,7 @@ def test_fairness_gap_check() -> None:
 # --- the gate and the registry ---------------------------------------------------------------
 
 
-def test_pipeline_gate_and_registry(sim_factory: sessionmaker[Session], tmp_path: Path) -> None:
+def test_pipeline_gate_and_registry(sim_factory: StoreFactory, tmp_path: Path) -> None:
     s = offline_settings(tmp_path)
     r1 = run_offline_pipeline(s, sim_factory, data_label="simulation")
     assert r1.status in ("candidate", "rejected")
@@ -220,13 +219,13 @@ def test_pipeline_gate_and_registry(sim_factory: sessionmaker[Session], tmp_path
     assert r2.metrics["ope_current"] == r1.metrics["ope_current"]
 
 
-def test_insufficient_data(session_factory: sessionmaker[Session], tmp_path: Path) -> None:
+def test_insufficient_data(session_factory: StoreFactory, tmp_path: Path) -> None:
     r = run_offline_pipeline(offline_settings(tmp_path), session_factory)
     assert r.status == "insufficient_data" and "current policy stays" in r.reasons[0]
 
 
 def test_teacher_approval_activates_learned_policy(
-    sim_factory: sessionmaker[Session], dataset: Dataset, tmp_path: Path
+    sim_factory: StoreFactory, dataset: Dataset, tmp_path: Path
 ) -> None:
     s = offline_settings(tmp_path)
     train, val = split_by_learner(dataset, 0.25, s.policy.seed)
@@ -257,13 +256,6 @@ def test_teacher_approval_activates_learned_policy(
     )
     assert stats.violations == 0
     with sim_factory() as db:
-        versions = set(
-            db.scalars(
-                select(m.Transition.policy_version).where(
-                    m.Transition.session_id.in_(
-                        select(m.Session.id).where(m.Session.learner_id.like("lrn_sim_99_%"))
-                    )
-                )
-            )
-        )
+        sids = db.distinct(m.Session, "id", {"learner_id": {"$regex": "^lrn_sim_99_"}})
+        versions = set(db.distinct(m.Transition, "policy_version", {"session_id": {"$in": sids}}))
     assert versions == {"tabular-test/deploy"}  # the approved policy is live

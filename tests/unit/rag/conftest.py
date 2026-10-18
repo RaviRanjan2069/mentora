@@ -3,9 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from sqlalchemy.orm import Session, sessionmaker
 
 from mentora.course import CourseSpec, load_course, upsert_course
+from mentora.db import StoreFactory
 from mentora.rag.embeddings import HashingEmbedder
 from mentora.rag.ingest import (
     PassageDraft,
@@ -36,7 +36,7 @@ def passages(course: CourseSpec, embedder: HashingEmbedder) -> list[PassageDraft
 
 @pytest.fixture
 def ingested(
-    session_factory: sessionmaker[Session], course: CourseSpec, passages: list[PassageDraft]
+    session_factory: StoreFactory, course: CourseSpec, passages: list[PassageDraft]
 ) -> int:
     with session_factory.begin() as db:
         course_id = upsert_course(db, course).id

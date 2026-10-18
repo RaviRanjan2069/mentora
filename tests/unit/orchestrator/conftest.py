@@ -5,10 +5,10 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from sqlalchemy.orm import Session, sessionmaker
 
 from mentora.config import Settings, get_settings
 from mentora.course import load_course, load_items, upsert_course, upsert_items
+from mentora.db import StoreFactory
 from mentora.llm.backends.fake import FakeLLM
 from mentora.llm.client import LLMClient
 from mentora.llm.types import LLMRequest
@@ -41,7 +41,7 @@ def tutor_reply(req: LLMRequest) -> str:
 
 
 @pytest.fixture
-def seeded_course(session_factory: sessionmaker[Session]) -> int:
+def seeded_course(session_factory: StoreFactory) -> int:
     course = load_course(ROOT / "data" / "concepts.yaml")
     with session_factory.begin() as db:
         course_id = upsert_course(db, course).id
@@ -55,7 +55,7 @@ MakeOrch = Callable[..., Orchestrator]
 
 
 @pytest.fixture
-def make_orch(session_factory: sessionmaker[Session], seeded_course: int) -> MakeOrch:
+def make_orch(session_factory: StoreFactory, seeded_course: int) -> MakeOrch:
     def make(
         settings: Settings | None = None,
         fake: FakeLLM | None = None,

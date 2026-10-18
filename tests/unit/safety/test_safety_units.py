@@ -6,9 +6,9 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from pydantic import ValidationError
-from sqlalchemy.orm import Session, sessionmaker
 
 from mentora.config import get_settings
+from mentora.db import StoreFactory
 from mentora.db import models as m
 from mentora.policy.catalogue import ESCALATE, WAIT, default_catalogue
 from mentora.safety.feasibility import FilterContext, feasible_set
@@ -144,7 +144,7 @@ def test_malformed_rules_are_rejected(rule: dict[str, object]) -> None:
         parse_rule("bad", rule, CAT)
 
 
-def test_rules_load_from_db(session_factory: sessionmaker[Session]) -> None:
+def test_rules_load_from_db(session_factory: StoreFactory) -> None:
     with session_factory.begin() as db:
         course = m.Course(code="C1", title="c")
         db.add(course)

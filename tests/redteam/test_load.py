@@ -10,7 +10,8 @@ from fastapi.testclient import TestClient
 from mentora.api.main import create_app
 from mentora.config import get_settings
 from mentora.course import load_course
-from mentora.db import Base, make_engine, make_session_factory
+from mentora.db import connect
+from mentora.db.client import drop_mock
 from mentora.llm.backends.fake import FakeLLM
 from mentora.llm.client import LLMClient
 from mentora.loadtest import run_load
@@ -22,12 +23,9 @@ from tests.unit.orchestrator.conftest import ROOT, Clock, tutor_reply
 def test_concurrent_learners(tmp_path: Path) -> None:
     from mentora.offline.simulator import seed_course
 
-    engine = make_engine(
-        f"sqlite:///{tmp_path / 'load.db'}",
-        connect_args={"check_same_thread": False, "timeout": 60},
-    )
-    Base.metadata.create_all(engine)
-    factory = make_session_factory(engine)
+    url = "mongomock://load_test"
+    drop_mock(url)
+    factory = connect(url)
     course_id = seed_course(factory, load_course(ROOT / "data" / "concepts.yaml"))
     settings = get_settings()
     app = create_app(settings, factory)

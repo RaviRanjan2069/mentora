@@ -53,7 +53,9 @@ def test_load_mutate_commit_is_saved(factory: StoreFactory) -> None:
         db.commit()
     with factory() as db:
         got = db.get(m.Session, sid)
-        assert got is not None and got.ended_at == datetime(2026, 1, 1, 12, 0, 0, 123000, tzinfo=UTC)
+        assert got is not None and got.ended_at == datetime(
+            2026, 1, 1, 12, 0, 0, 123000, tzinfo=UTC
+        )
 
 
 def test_leaving_without_commit_or_with_error_undoes_writes(factory: StoreFactory) -> None:
@@ -79,15 +81,25 @@ def test_constraints_references_and_unique(factory: StoreFactory) -> None:
     with factory.begin() as db:
         db.add(
             m.Transition(
-                learner_id=lid, session_id=sid, t=1, state=[0.0], action_id="WAIT",
-                propensity=1.0, policy_version="rule-v1",
+                learner_id=lid,
+                session_id=sid,
+                t=1,
+                state=[0.0],
+                action_id="WAIT",
+                propensity=1.0,
+                policy_version="rule-v1",
             )
         )
     with pytest.raises(IntegrityError), factory.begin() as db:
         db.add(
             m.Transition(
-                learner_id=lid, session_id=sid, t=1, state=[0.0], action_id="WAIT",
-                propensity=1.0, policy_version="rule-v1",
+                learner_id=lid,
+                session_id=sid,
+                t=1,
+                state=[0.0],
+                action_id="WAIT",
+                propensity=1.0,
+                policy_version="rule-v1",
             )
         )
 
@@ -102,8 +114,13 @@ def test_deleting_a_learner_cascades_and_sets_null(factory: StoreFactory) -> Non
         db.add(m.MemoryItem(scope="course", course_id=cid, text="t", source_session_id=sid))
         db.add(
             m.Event(
-                id="ev1", learner_id=lid, session_id=sid, verb="v", object_id="o",
-                timestamp=datetime.now(UTC), statement={},
+                id="ev1",
+                learner_id=lid,
+                session_id=sid,
+                verb="v",
+                object_id="o",
+                timestamp=datetime.now(UTC),
+                statement={},
             )
         )
     with factory.begin() as db:

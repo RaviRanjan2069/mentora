@@ -85,7 +85,7 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
-    "postgres: needs a live PostgreSQL with pgvector (run in CI or docker compose)",
+    "mongo: needs a live MongoDB (MENTORA_TEST_MONGODB_URL; CI service, compose or local)",
     "models: needs downloaded ML models (sentence-transformers); run with -m models",
 ]
-addopts = "-m 'not postgres and not models'"
+addopts = "-m 'not mongo and not models'"

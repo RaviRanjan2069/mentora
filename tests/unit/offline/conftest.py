@@ -4,11 +4,10 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from mentora.config import Settings, get_settings
-from mentora.db import Base, make_engine, make_session_factory
+from mentora.db import StoreFactory, connect
+from mentora.db.client import drop_mock
 from mentora.offline.simulator import run_simulation
 from mentora.policy.catalogue import default_catalogue
 from mentora.reward.dataset_builder import Dataset, build_dataset
@@ -35,18 +34,16 @@ def offline_settings(model_dir: Path) -> Settings:
 
 
 @pytest.fixture(scope="module")
-def sim_factory() -> Iterator[sessionmaker[Session]]:
+def sim_factory() -> Iterator[StoreFactory]:
     """Simulated logs (collect mode, with propensities): 36 sessions from 12 learners."""
-    engine = make_engine(
-        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
-    )
-    Base.metadata.create_all(engine)
-    factory = make_session_factory(engine)
+    url = "mongomock://offline_sim"
+    drop_mock(url)
+    factory = connect(url)
     run_simulation(get_settings(), factory, n_sessions=36, turns=12, seed=21)
     yield factory
-    engine.dispose()
+    drop_mock(url)
 
 
 @pytest.fixture(scope="module")
-def dataset(sim_factory: sessionmaker[Session]) -> Dataset:
+def dataset(sim_factory: StoreFactory) -> Dataset:
     return build_dataset(sim_factory, default_catalogue())
