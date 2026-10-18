@@ -67,7 +67,12 @@ def _local_llm_status(s: Settings) -> tuple[str, str]:
     if s.llm.backend != "local":
         return "configured", where
     try:
-        resp = httpx.get(f"{s.local_llm_base_url.rstrip('/')}/models", timeout=1.5)
+        key = s.local_llm_api_key.get_secret_value()
+        resp = httpx.get(
+            f"{s.local_llm_base_url.rstrip('/')}/models",
+            headers={"Authorization": f"Bearer {key}"} if key else {},
+            timeout=5.0,  # a remote model server (tunnel) needs longer than 1.5 s
+        )
         names = {m.get("id") for m in resp.json().get("data", [])}
     except Exception:
         return "down", f"{where}: not reachable (is Ollama running?)"

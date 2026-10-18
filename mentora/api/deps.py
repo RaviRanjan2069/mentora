@@ -67,9 +67,11 @@ def warm_up(state: Any) -> None:
             import httpx
 
             native = settings.local_llm_base_url.rstrip("/").removesuffix("/v1")
+            key = settings.local_llm_api_key.get_secret_value()
             httpx.post(
                 f"{native}/api/generate",
                 json={"model": settings.llm.local_model, "keep_alive": "60m"},
+                headers={"Authorization": f"Bearer {key}"} if key else {},
                 timeout=settings.llm.timeout_s,
             )
         log.info("warm-up finished")

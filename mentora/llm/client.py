@@ -310,6 +310,7 @@ def make_backend(settings: Settings) -> LLMBackend:
             settings.local_llm_base_url,
             temperature=cfg.local_temperature,
             timeout_s=cfg.timeout_s,
+            api_key=settings.local_llm_api_key.get_secret_value() or None,
         )
     if cfg.backend == "offline":
         from mentora.llm.backends.offline import OfflineLLM

@@ -224,6 +224,8 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("MENTORA_HOSTED_LLM_API_KEY", "ANTHROPIC_API_KEY"),
     )
     local_llm_base_url: str = "http://localhost:11434/v1"
+    # Bearer token for a local model server behind an authenticating gateway (optional).
+    local_llm_api_key: SecretStr = SecretStr("")
     pseudonym_salt: SecretStr = SecretStr("dev-only-salt")
     lti_issuer: str = ""
     lti_client_id: str = ""

@@ -1,0 +1,35 @@
+# Distress lexicon for the well-being check (design rule 7). Deterministic, no LLM.
+# Any match routes the turn to ESCALATE and shows support resources.
+# Patterns are case-insensitive regular expressions matched on word boundaries.
+# This list is deliberately broad (false alarms cost a teacher's time; misses cost more).
+# The team and the university counselling service should review it before the pilot.
+crisis:
+  - kill myself
+  - killing myself
+  - end (my|it all|my life)
+  - suicid\w*
+  - self[- ]?harm\w*
+  - hurt(ing)? myself
+  - cut(ting)? myself
+  - (don'?t|do not) want to (live|be alive|exist)
+  - no (reason|point) (to|in) (live|living|going on)
+  - better off (dead|without me)
+  - want to die
+  - wish i (was|were) dead
+distress:
+  - can'?t cope
+  - cannot cope
+  - can'?t (take|handle) (it|this) any ?more
+  - can'?t go on
+  - panic attacks?
+  - (feel|feeling|i'?m|i am) (so |really |completely )?(hopeless|worthless|empty|numb)
+  - breaking down
+  - falling apart
+  - (so |really |very |totally )?overwhelmed
+  - (so |really |very )?(stressed|anxious|depressed) (out )?(all the time|about everything|that i can'?t)
+  - (i'?m|i am|feel|feeling) (so |really |very )?(depressed|miserable)
+  - nobody cares
+  - no one cares
+  - (i'?m|i am) (all )?alone
+  - crying (all|every)
+  - haven'?t slept in days

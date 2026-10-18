@@ -124,7 +124,23 @@ Then restart the service (Render → *Manual Deploy* → *Restart*).
 
 ## Optional: real LLM replies
 
-Set `ANTHROPIC_API_KEY` as a Render secret and `MENTORA_LLM__BACKEND=hosted`,
-`MENTORA_RAG__ANSWER_MODE=open`. **This is paid** (Anthropic API usage) and leaves the
-₹0 plan. A local Ollama model needs a machine with several GB of RAM; it does not fit the
-free tier.
+**Claude (paid)**: set `ANTHROPIC_API_KEY` as a Render secret and
+`MENTORA_LLM__BACKEND=hosted`, `MENTORA_RAG__ANSWER_MODE=open`. This leaves the ₹0 plan.
+
+**Ollama on your own computer (free)**: the Render instance is too small to run a model,
+so the deployed app calls your computer through a tunnel. Tutor replies only work while
+your computer, Ollama, the gateway and the tunnel are all running; otherwise tutor turns
+fail after the timeout (switch back to `offline` when you stop).
+
+1. Pick a long random token. Start the gateway (never tunnel Ollama's port 11434 itself:
+   its API can pull and delete models):
+   `python scripts/ollama_gateway.py --token <token>` (listens on 127.0.0.1:11435).
+2. In a second terminal, start a tunnel to the gateway, e.g. a free Cloudflare quick
+   tunnel (no account): `cloudflared tunnel --url http://127.0.0.1:11435`. It prints an
+   `https://<random>.trycloudflare.com` URL, which changes on every restart.
+3. On Render set: `MENTORA_LLM__BACKEND=local`, `MENTORA_LLM__LOCAL_MODEL=llama3.2:3b`,
+   `MENTORA_LOCAL_LLM_BASE_URL=https://<random>.trycloudflare.com/v1`,
+   `MENTORA_LOCAL_LLM_API_KEY=<token>`, `MENTORA_LLM__TIMEOUT_S=180`,
+   `MENTORA_RAG__ANSWER_MODE=open`, `MENTORA_RAG__ANSWER_REGENERATIONS=0`.
+   Teacher console → System status shows whether the model is reachable.
+4. To stop: set `MENTORA_LLM__BACKEND=offline` and `MENTORA_RAG__ANSWER_MODE=course_only`.

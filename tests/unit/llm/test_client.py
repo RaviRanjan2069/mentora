@@ -84,3 +84,23 @@ def test_make_client_uses_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     assert client.backend.name == "fake"
     assert client.cache is not None and client.cache.directory == tmp_path
     assert client.max_tokens == get_settings().llm.max_tokens
+
+
+def test_local_backend_sends_gateway_token() -> None:
+    from pydantic import SecretStr
+
+    from mentora.llm.backends.local import LocalBackend
+    from mentora.llm.client import make_backend
+
+    s = get_settings()
+    s = s.model_copy(
+        update={
+            "llm": s.llm.model_copy(update={"backend": "local"}),
+            "local_llm_api_key": SecretStr("gw-token"),
+        }
+    )
+    backend = make_backend(s)
+    assert isinstance(backend, LocalBackend)
+    assert backend._http.headers["Authorization"] == "Bearer gw-token"
+    s = s.model_copy(update={"local_llm_api_key": SecretStr("")})
+    assert "Authorization" not in make_backend(s)._http.headers  # type: ignore[attr-defined]
