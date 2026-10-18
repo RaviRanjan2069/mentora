@@ -1,7 +1,8 @@
 # Mentora architecture
 
 Mentora (Python package `mentora`) is one FastAPI service plus a Celery worker, with
-MongoDB, Redis, and a React frontend that the API serves at `/app`.
+MongoDB, Redis, and a web app in plain HTML, CSS and JavaScript that the API serves at `/app`
+(`frontend/`: `index.html`, `css/`, `js/` ES modules, one per page under `js/pages/`; no build step).
 
 ## One tutoring turn (`mentora/orchestrator/turn.py`)
 

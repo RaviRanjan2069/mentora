@@ -223,3 +223,19 @@ def test_health_home_and_search(app: FastAPI) -> None:
     assert c.get("/favicon.ico").status_code == 200
     hits = c.get("/api/rag/search", params={"q": "range(10)"}).json()["hits"]
     assert len(hits) == 4 and "range" in hits[0]["text"]
+
+
+def test_web_app_is_plain_files_without_a_build(app: FastAPI) -> None:
+    """The web app is HTML, CSS and JavaScript modules served as they are in frontend/."""
+    c = TestClient(app)
+    page = c.get("/app/")
+    assert page.status_code == 200 and '<script type="module" src="js/app.js">' in page.text
+    for path in ("/app/js/app.js", "/app/js/pages/tutor.js", "/app/css/styles.css"):
+        r = c.get(path)
+        assert r.status_code == 200, path
+        assert r.headers["cache-control"] == "no-cache", path  # no fingerprints: revalidate
+    assert (
+        c.get("/app/js/app.js")
+        .headers["content-type"]
+        .startswith(("application/javascript", "text/javascript"))
+    )

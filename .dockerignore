@@ -7,7 +7,6 @@
 .hypothesis
 .env
 *.db
-frontend/node_modules
 lms/
 oracleJdk-27/
 target/

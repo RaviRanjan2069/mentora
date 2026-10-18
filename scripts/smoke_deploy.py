@@ -49,11 +49,14 @@ def main() -> None:
     check("health ok, database reachable", h.get("status") == "ok" and h["database"] == "ok", h)
 
     page = anon.get("/app/")
-    check("/app/ serves the React app", page.status_code == 200 and "<div id=" in page.text)
+    check("/app/ serves the web app", page.status_code == 200 and "<div id=" in page.text)
     check("/ redirects to /app/", str(anon.get("/").url).rstrip("/").endswith("/app"))
     assets = [p.split('"')[0] for p in page.text.split('src="')[1:]]
-    for a in assets[:2]:
-        check(f"asset {a}", anon.get(a).status_code == 200)
+    links = [p.split('"')[0] for p in page.text.split('href="')[1:]]
+    assets += [a for a in links if a.endswith(".css")]
+    for a in assets[:4]:
+        url = a if a.startswith("/") else f"/app/{a}"  # the page's own files are relative
+        check(f"asset {url}", anon.get(url).status_code == 200)
     check("built app has no localhost URLs", "localhost" not in page.text)
     check("anonymous /api/me is 401", anon.get("/api/me").status_code == 401)
     check(

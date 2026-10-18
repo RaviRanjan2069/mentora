@@ -3,9 +3,10 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -16,7 +17,20 @@ from mentora.config import Settings, get_settings
 from mentora.db import StoreFactory, connect, ensure_schema
 
 STATIC_DIR = Path(__file__).with_name("static")
-FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+# The web app is plain HTML, CSS and JavaScript (ES modules), served as is: no build step.
+FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
+
+
+class AppFiles(StaticFiles):
+    """Web app files keep their names across deploys (nothing is fingerprinted), so browsers
+    must revalidate them (cheap, by ETag) instead of running stale scripts."""
+
+    def file_response(
+        self, full_path: Any, stat_result: Any, scope: Any, status_code: int = 200
+    ) -> Response:
+        response = super().file_response(full_path, stat_result, scope, status_code)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
 
 def create_app(
@@ -63,17 +77,7 @@ def create_app(
     ):
         app.include_router(router)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-    if FRONTEND_DIST.exists():
-        app.mount("/app", StaticFiles(directory=FRONTEND_DIST, html=True), name="app")
-    else:
-
-        @app.get("/app/", include_in_schema=False)
-        def app_not_built() -> HTMLResponse:
-            return HTMLResponse(
-                "<p>The web app is not built yet. Run <code>npm install && npm run build</code> "
-                "in <code>frontend/</code>.</p>",
-                status_code=503,
-            )
+    app.mount("/app", AppFiles(directory=FRONTEND_DIR, html=True), name="app")
 
     @app.get("/", include_in_schema=False)
     def home() -> RedirectResponse:

@@ -18,7 +18,6 @@ Needs a MongoDB server (local, default `mongodb://localhost:27017/mentora`, or A
 python -m venv .venv && .venv/Scripts/activate        # macOS/Linux: source .venv/bin/activate
 pip install -e ".[dev]"
 pip install --extra-index-url https://download.pytorch.org/whl/cpu -e ".[ml]"
-cd frontend && npm install && npm run build && cd ..
 python scripts/seed_demo.py --with-history
 uvicorn mentora.api.main:app --reload                  # open http://127.0.0.1:8000/app/
 ```
@@ -46,7 +45,7 @@ course-memory proposals, and approve or reject policy candidates.
 - **Offline loop**: dataset builder, simulator (debugging only), tabular and ensemble-CQL
   policies, doubly robust OPE with a bootstrap lower bound, fairness and overlap checks,
   a teacher report, and approval.
-- **Integration**: LTI 1.3 launch from Moodle, a React web app, Docker Compose and CI.
+- **Integration**: LTI 1.3 launch from Moodle, a web app in plain HTML, CSS and JavaScript (no build step), Docker Compose and CI.
 
 LLM back-ends: `auto` (default: Claude when `ANTHROPIC_API_KEY` is set in the environment
 or `.env`, otherwise `offline` templates), `hosted` (Claude via the Anthropic SDK), `local`
@@ -69,7 +68,7 @@ or `.env`, otherwise `offline` templates), `hosted` (Claude via the Anthropic SD
 ```
 mentora/      Python package: api, orchestrator, learner_model, policy, safety, agents,
               rag, memory, reward, offline, llm, logging_xapi, config, prompts, db
-frontend/     React + TypeScript + Vite app (served by the API at /app)
+frontend/     web app: index.html, css/, js/ (plain ES modules, no build; served at /app)
 data/         concepts.yaml + synthetic sample course (material, items, a scripted session)
 scripts/      seed_demo, generate_question_bank, ingest_corpus, rag_query, rag_audit, replay_session,
               train_learner_models, simulate_logs, train_policy, reward_sensitivity, load_test

@@ -1,6 +1,6 @@
 # Free public demo (Render + MongoDB Atlas)
 
-A public Mentora demo for ₹0: one Render free web service (FastAPI serving the built React
+A public Mentora demo for ₹0: one Render free web service (FastAPI serving the plain HTML/CSS/JavaScript
 app at `/app`) and a MongoDB Atlas free M0 cluster. No domain, no card, no API key.
 
 > The demo runs on a **synthetic course** with no simulated students. Nothing in it has been

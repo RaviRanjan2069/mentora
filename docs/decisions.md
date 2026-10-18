@@ -213,7 +213,7 @@ rejects non-specific items. Known cost: a genuine reflection containing "always"
 "never" is rejected.
 
 ## D34 — Frontend served by the API, with hash routing and dev sign-in (M7)
-The built React app is served at `/app`, so there is one origin and no CORS. Hash routing
+The web app is served at `/app` (plain HTML/CSS/JS since D40), so there is one origin and no CORS. Hash routing
 avoids server-side fallbacks. Dev sign-in (`MENTORA_DEV_LOGIN`) lets you test without
 Moodle and must be off in production.
 
@@ -255,3 +255,14 @@ crash mid-commit can leave a partial write (Postgres was atomic); timestamps kee
 milliseconds, so events carry a `seq` to keep insertion order on equal timestamps; Atlas
 M0 allows 100 operations per second (a tutor turn uses about 25) and has no backups.
 Schema v1 and its Alembic history are retired; the version is now `v1-mongo`.
+
+## D40 — Web app in plain HTML, CSS and JavaScript (deployment)
+Requested: no framework and no build step. The React/TypeScript/Vite app was rewritten as
+native ES modules (`frontend/js`), one module per page, with the same CSS, pages, API calls
+and behaviour. A small `h()` helper builds DOM nodes (text is never parsed as HTML) and
+`render()` redraws a container while keeping the focused input and its caret, so pages can
+redraw after any state change. The tutoring session is a small shared store (`session.js`)
+that the Tutor, Practice and command palette subscribe to. FastAPI serves `frontend/` as is
+with `Cache-Control: no-cache` (file names are not fingerprinted, so browsers revalidate by
+ETag after a deploy). The Docker image lost its Node build stage; CI syntax-checks the
+modules with `node --check`.

@@ -6,7 +6,7 @@ repository root. On Windows Git Bash use `.venv/Scripts/...`; on macOS/Linux use
 
 ## 1. First-time setup (about 10 minutes)
 
-Requires Python 3.11+, Node 20+, git and MongoDB. Locally, install MongoDB Community
+Requires Python 3.11+, git and MongoDB. Locally, install MongoDB Community
 Server (Windows: `winget install MongoDB.Server`, which runs it as a service on
 `localhost:27017`) or point `MENTORA_DATABASE_URL` at a MongoDB Atlas cluster. The default
 is `mongodb://localhost:27017/mentora`. MongoDB Compass is handy for looking at the data.
@@ -16,7 +16,6 @@ python -m venv .venv
 .venv/Scripts/activate                       # macOS/Linux: source .venv/bin/activate
 pip install -e ".[dev]"
 pip install --extra-index-url https://download.pytorch.org/whl/cpu -e ".[ml]"   # ~1 GB, CPU PyTorch
-cd frontend && npm install && npm run build && cd ..
 ```
 
 ## 2. Run the demo locally (no Docker, no API key)
@@ -98,7 +97,7 @@ reranker models (about 20 seconds); later requests are fast.
 | Everything (in-memory MongoDB + FakeLLM, ~2 min) | `pytest` |
 | Lint | `ruff check mentora tests scripts` and `ruff format --check mentora tests scripts` |
 | Types | `mypy mentora scripts` |
-| Frontend type-check + build | `cd frontend && npm run build` |
+| Web app syntax check (needs Node 22+, optional) | `for f in frontend/js/*.js frontend/js/pages/*.js; do node --check $f; done` |
 | Real ML models (downloads ~250 MB once) | `pytest -m models` |
 | Real MongoDB: indexes, round-trip, cascades (throwaway database, dropped after) | `MENTORA_TEST_MONGODB_URL=mongodb://localhost:27017 pytest -m mongo tests/mongo` |
 | Red-team suite only | `pytest tests/redteam` |

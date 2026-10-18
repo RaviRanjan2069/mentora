@@ -22,10 +22,6 @@ llm_cache/
 models/
 reports/
 
-# Frontend
-frontend/node_modules/
-frontend/dist/
-frontend/*.tsbuildinfo
 
 # IDE / leftovers from the legacy Java project
 .idea/
