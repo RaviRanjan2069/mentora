@@ -9,7 +9,7 @@
 - ``rollback`` (and leaving ``begin()`` with an exception, or a Store without commit)
   undoes everything flushed since the last commit, from an undo journal. A standalone
   MongoDB has no multi-document transactions, so a crash in the middle of a flush can
-  leave a partial write (docs/decisions.md D40).
+  leave a partial write (docs/decisions.md D39).
 """
 
 from __future__ import annotations

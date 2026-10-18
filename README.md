@@ -12,6 +12,8 @@ deterministic safety filter, off-policy evaluation, a fairness check and teacher
 
 ## Try it (no Docker, no API key)
 
+Needs a MongoDB server (local, default `mongodb://localhost:27017/mentora`, or Atlas).
+
 ```bash
 python -m venv .venv && .venv/Scripts/activate        # macOS/Linux: source .venv/bin/activate
 pip install -e ".[dev]"
@@ -55,9 +57,9 @@ or `.env`, otherwise `offline` templates), `hosted` (Claude via the Anthropic SD
 | Doc | For |
 |---|---|
 | [docs/runbook.md](docs/runbook.md) | running, testing, Moodle setup, your course, the learning loop |
-| [docs/deploy.md](docs/deploy.md) | free public demo on Render + Neon (offline mode, ₹0) |
+| [docs/deploy.md](docs/deploy.md) | free public demo on Render + MongoDB Atlas (₹0) |
 | [docs/architecture.md](docs/architecture.md) | the tutoring turn, package map, invariants and their tests |
-| [docs/schema.md](docs/schema.md) | database schema v1 and xAPI statements |
+| [docs/schema.md](docs/schema.md) | MongoDB collections (schema v1-mongo) and xAPI statements |
 | [docs/learner_model.md](docs/learner_model.md) | learner-model components and the state vector |
 | [docs/coding_manual.md](docs/coding_manual.md) | SRL indicator definitions for human coders |
 | [docs/decisions.md](docs/decisions.md) | every non-obvious design decision |
@@ -68,11 +70,10 @@ or `.env`, otherwise `offline` templates), `hosted` (Claude via the Anthropic SD
 mentora/      Python package: api, orchestrator, learner_model, policy, safety, agents,
               rag, memory, reward, offline, llm, logging_xapi, config, prompts, db
 frontend/     React + TypeScript + Vite app (served by the API at /app)
-alembic/      database migrations (0001 = frozen schema v1)
 data/         concepts.yaml + synthetic sample course (material, items, a scripted session)
 scripts/      seed_demo, generate_question_bank, ingest_corpus, rag_query, rag_audit, replay_session,
               train_learner_models, simulate_logs, train_policy, reward_sensitivity, load_test
-tests/        unit/, redteam/, models/ (real ML models), postgres/ (CI service DB)
+tests/        unit/, redteam/, models/ (real ML models), mongo/ (real MongoDB server)
 docs/         see the table above
 ```
 

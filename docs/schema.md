@@ -1,38 +1,55 @@
-# Schema v1 (frozen)
+# Schema v1-mongo
 
-Source of truth: `mentora/db/models.py`. The migration `alembic/versions/0001_schema_v1.py`
-is written out in full, and `tests/unit/test_migration_matches_models.py` checks that it
-emits exactly the DDL the models produce. **Any change after v1 needs a new Alembic
-migration.** Do not edit 0001.
+Source of truth: `mentora/db/models.py` (documents) and `mentora/db/client.py` (indexes).
+Mentora stores its data in MongoDB (docs/decisions.md D39). The entities and field names
+are those of the earlier SQL schema v1; a document's primary key is stored as `_id`.
+There are no migrations: `ensure_schema()` creates the indexes (idempotent) on API start
+and in `scripts/init_db.py`, and records `{"_id": "schema", "version": "v1-mongo"}` in the
+`meta` collection. A change that needs existing documents rewritten needs a one-off script.
 
-Conventions: all timestamps are `timestamptz` in UTC. JSON columns are `jsonb` on
-PostgreSQL. Embeddings are `vector(384)` (pgvector, `all-MiniLM-L6-v2`). Constraint names
-follow `pk_/fk_/uq_/ck_<table>_…`.
+Conventions: all timestamps are timezone-aware UTC, stored with millisecond precision.
+Embeddings are float arrays of length 384 (`all-MiniLM-L6-v2`); similarity is computed in
+Python (D17). Integer ids come from the `counters` collection.
 
-## Tables
+What SQL used to enforce is enforced by `mentora/db/store.py`:
 
-| Table | Purpose | Key columns |
+- **references** (`Document.__refs__`): inserts fail with `IntegrityError` when a referenced
+  document does not exist; deleting a document deletes its children (cascade) or clears
+  the reference (set-null), set-based, one query per collection and level;
+- **constraints** (`Document.validate()`): the old CHECK constraints (status values,
+  propensity in (0, 1], memory scope, no self-prerequisite, embedding length);
+- **unique indexes**: `courses.code`, `concepts (course_id, key)`, `transitions (session_id, t)`;
+- **units of work**: `StoreFactory.begin()` commits on success and undoes everything written
+  since the last commit on an error, from an undo journal. A standalone MongoDB has no
+  multi-document transactions, so a crash in the middle of a write can leave it partial.
+
+## Collections
+
+| Collection | Purpose | Key fields |
 |---|---|---|
-| `learners` | Pseudonymous learner | `id` (salted-HMAC pseudonym), `gender`, `prior_achievement_tercile` (fairness check only) |
+| `learners` | Pseudonymous learner | `_id` (salted-HMAC pseudonym), `gender`, `prior_achievement_tercile` (fairness check only) |
 | `courses` | Course | `code` (unique), `lti_context_id` |
-| `concepts` | Knowledge components | `course_id`, `key` (unique per course) |
-| `concept_prerequisites` | Prerequisite edges (DAG) | `concept_id`, `prerequisite_id`, no self-edges |
-| `items` | Quiz items | `graded` (integrity rules apply), `item_type`, `answer_key` |
-| `item_concepts` | Item ↔ concept tags | |
+| `concepts` | Knowledge components | `course_id`, `key` (unique per course), `prerequisite_ids` (DAG edges, no self-edges) |
+| `items` | Quiz items | `graded` (integrity rules apply), `item_type`, `answer_key`, `concept_ids` (concept tags) |
 | `sessions` | One tutoring session | `mode` ∈ {adaptive, static}, `policy_version` |
-| `events` | One xAPI statement each | `statement` (full jsonb, source of truth) + denormalised `verb`, `turn`, `action_id`, `propensity`, `policy_version`, `escalated` |
+| `events` | One xAPI statement each | `statement` (full document, source of truth) + denormalised `verb`, `turn`, `action_id`, `propensity`, `policy_version`, `escalated`; `seq` (insertion order, breaks timestamp ties) |
 | `goals` | Learner goals | `concept_keys`, `smart_score`, `status` ∈ {active, attained, abandoned} |
-| `plans` | Plan for a goal | `steps` (jsonb), `progress` ρ ∈ [0, 1] |
+| `plans` | Plan for a goal | `steps`, `progress` ρ ∈ [0, 1] |
 | `memory_items` | Reflective memory | `scope` ∈ {learner, course}, `embedding`, `n_plus`, `n_minus`, `quality`, `status` ∈ {active, pending_review, pruned} |
 | `transitions` | Offline-RL data (s, a, μ, r, s′) | `state`/`next_state` (float lists), `action_id`, `propensity` ∈ (0, 1], `reward`, `policy_version`; unique (`session_id`, `t`) |
-| `policies` | Policy registry | `version`, `type`, `config`, `metrics`, `status` ∈ {candidate, approved, rejected, active, retired}, `approved_by`, `reasons` |
+| `policies` | Policy registry | `_id` = `version`, `type`, `config`, `metrics`, `status` ∈ {candidate, approved, rejected, active, retired}, `approved_by`, `reasons` |
 | `escalations` | Teacher inbox | `reason`, `status` ∈ {open, answered, closed}, `teacher_response` |
-| `teacher_rules` | Structured rules for the filter | `rule` (jsonb, e.g. `{"forbid": {"agent": "PeerBroker"}, "when": {"week_lte": 1}}`) |
-| `corpus_passages` | RAG passages | `id` (citable), `embedding`, `concept_keys`, `section`, `week` |
+| `teacher_rules` | Structured rules for the filter | `rule` (e.g. `{"forbid": {"agent": "PeerBroker"}, "when": {"week_lte": 1}}`) |
+| `corpus_passages` | RAG passages | `_id` (citable passage id), `embedding`, `concept_keys`, `section`, `week` |
 | `consents` | Consent records | `consent_type` ∈ {tutoring, research_logging}, `granted`, `form_version` |
+| `counters`, `meta` | Integer id sequences; schema version | |
 
-`transitions.reward` and `next_state` are NULL when the row is written. They are filled
-in at the next step, once the reward is known.
+Deleting a learner removes their sessions, events, goals (and plans), memory, transitions,
+escalations and consents. Deleting a session removes its events and transitions and clears
+`session_id` on goals, escalations and course memory.
+
+`transitions.reward` and `next_state` are null when the document is written. They are
+filled in at the next step, once the reward is known.
 
 ## xAPI statements
 
@@ -71,12 +88,12 @@ Validation rejects a propensity outside (0, 1], an action outside
 `<Agent>.<move>.<Style>`, or `WAIT` / `ESCALATE`.
 
 The `LRSClient` protocol (`store`, `store_many`, `query`) is implemented by
-`SqlLRSClient` on the `events` table. Storing the same statement twice is a no-op. Reusing
+`SqlLRSClient` on the `events` collection (the name predates MongoDB). Storing the same statement twice is a no-op. Reusing
 an id with different content raises `StatementConflictError`, the equivalent of xAPI 409.
 
-## Additions after v1 (no table changes)
+## Additions after v1 (inside statements)
 
-These were added inside xAPI statements, so the frozen tables did not change.
+These were added inside xAPI statements, so no collection changed.
 
 | Where | Field | Meaning |
 |---|---|---|

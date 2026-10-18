@@ -6,7 +6,10 @@ repository root. On Windows Git Bash use `.venv/Scripts/...`; on macOS/Linux use
 
 ## 1. First-time setup (about 10 minutes)
 
-Requires Python 3.11+, Node 20+ and git.
+Requires Python 3.11+, Node 20+, git and MongoDB. Locally, install MongoDB Community
+Server (Windows: `winget install MongoDB.Server`, which runs it as a service on
+`localhost:27017`) or point `MENTORA_DATABASE_URL` at a MongoDB Atlas cluster. The default
+is `mongodb://localhost:27017/mentora`. MongoDB Compass is handy for looking at the data.
 
 ```bash
 python -m venv .venv
@@ -19,6 +22,7 @@ cd frontend && npm install && npm run build && cd ..
 ## 2. Run the demo locally (no Docker, no API key)
 
 ```bash
+python scripts/init_db.py                    # indexes (the API also creates them on start)
 python scripts/seed_demo.py --with-history   # course, items + 1000-question bank, material, history
 python scripts/train_learner_models.py       # optional: KT models + tactic HMM (~1 min)
 uvicorn mentora.api.main:app --reload        # http://127.0.0.1:8000
@@ -91,12 +95,12 @@ reranker models (about 20 seconds); later requests are fast.
 
 | What | Command |
 |---|---|
-| Everything (SQLite + FakeLLM, ~2 min) | `pytest` |
-| Lint | `ruff check mentora tests scripts alembic` and `ruff format --check mentora tests scripts alembic` |
+| Everything (in-memory MongoDB + FakeLLM, ~2 min) | `pytest` |
+| Lint | `ruff check mentora tests scripts` and `ruff format --check mentora tests scripts` |
 | Types | `mypy mentora scripts` |
 | Frontend type-check + build | `cd frontend && npm run build` |
 | Real ML models (downloads ~250 MB once) | `pytest -m models` |
-| PostgreSQL migration + pgvector (needs a DB) | `MENTORA_DATABASE_URL=postgresql+psycopg://mentora:mentora@localhost:5432/mentora pytest -m postgres` |
+| Real MongoDB: indexes, round-trip, cascades (throwaway database, dropped after) | `MENTORA_TEST_MONGODB_URL=mongodb://localhost:27017 pytest -m mongo tests/mongo` |
 | Red-team suite only | `pytest tests/redteam` |
 | Regenerate agent golden files after a prompt change | `UPDATE_GOLDEN=1 pytest tests/unit/agents`, then review the diff |
 
@@ -104,11 +108,11 @@ reranker models (about 20 seconds); later requests are fast.
 
 ```bash
 cp .env.example .env                         # set MENTORA_SESSION_SECRET, keys, LTI values
-docker compose up --build                    # api :8000 (serves /app), worker, postgres, redis
+docker compose up --build                    # api :8000 (serves /app), worker, mongo, redis
 docker compose exec api python scripts/seed_demo.py
 ```
 
-The API container runs `alembic upgrade head` on start. With compose, end-of-session
+The API creates the MongoDB indexes on start. With compose, end-of-session
 memory jobs run in the Celery worker (`MENTORA_JOBS__MODE=celery`).
 
 ## 5. Moodle (LTI 1.3)
@@ -163,7 +167,7 @@ Roster and grade passback are not implemented (see docs/decisions.md D31).
 | Step | Command |
 |---|---|
 | Replay a scripted session and see every decision | `python scripts/replay_session.py data/sample/sessions/demo_session.yaml` |
-| Simulated logs in a separate DB (debugging only) | `python scripts/simulate_logs.py --sessions 120 --db sqlite:///./simulated.db` |
+| Simulated logs in a separate DB (debugging only) | `python scripts/simulate_logs.py --sessions 120 --db mongodb://localhost:27017/mentora_sim` |
 | Train + evaluate + gate a policy | `python scripts/train_policy.py` (add `--db ... --label simulation` for simulated data) |
 | Reward λ-sensitivity (simulation) | `python scripts/reward_sensitivity.py` |
 | Train KT models and the tactic HMM | `python scripts/train_learner_models.py [--assistments <csv>] [--hmm-from-db]` |
@@ -180,7 +184,8 @@ ASSISTments 2009-2010 skill-builder data: download it from the ASSISTments websi
 ## 8. Operations
 
 - **Load test** against a running server: `python scripts/load_test.py --learners 30`.
-  SQLite serialises writes, so use PostgreSQL for real numbers.
+  On MongoDB Atlas M0 the cap is 100 database operations per second (a tutor turn
+  uses about 25), so measure against a local server or a paid tier.
 - **Configuration**: every tunable value is in `mentora/config/defaults.yaml`. Override
   with `MENTORA_<SECTION>__<KEY>` (e.g. `MENTORA_SAFETY__THETA_PRE=0.6`,
   `MENTORA_APP__MODE=static` for the control arm).
@@ -193,5 +198,5 @@ ASSISTments 2009-2010 skill-builder data: download it from the ASSISTments websi
 
 ## 9. Data rules
 
-Only synthetic data goes in `data/`. Real learner data is never committed: `*.db`,
-`data/private/`, `models/` and `reports/` are git-ignored.
+Only synthetic data goes in `data/`. Real learner data lives only in MongoDB and is never
+committed: `data/private/`, `models/` and `reports/` are git-ignored.

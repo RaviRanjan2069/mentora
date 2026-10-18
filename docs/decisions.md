@@ -15,18 +15,20 @@ branch. The bundled JDK, build output and H2 database were not committed, becaus
 database may have held real user records (design rule 9).
 
 ## D3 — SQLite for unit tests, PostgreSQL in CI (M1)
+*Superseded by D39 (MongoDB; tests use mongomock, CI a `mongo:7` service).*
 `pytest` must run offline with no Docker. Models use portable types (`mentora/db/types.py`):
 `jsonb` → JSON and `vector(384)` → JSON list on SQLite, plus a UTC-aware datetime type.
 Postgres-only behaviour (migrations, pgvector) is covered by `tests/postgres/`, marked
 `@pytest.mark.postgres`. CI runs those against a `pgvector/pgvector:pg16` service.
 
 ## D4 — Migration 0001 written out in full (M1)
+*Superseded by D39 (no migrations; indexes are the schema).*
 The migration does not call `metadata.create_all()`, which would silently change v1
 whenever a model changes. It lists every table explicitly. A unit test compares its
 offline SQL with the DDL compiled from the models, so the two cannot drift.
 
 ## D5 — `events.statement` is the source of truth (M1)
-The full xAPI statement is stored as jsonb. Columns such as `action_id`, `propensity` and
+The full xAPI statement is stored as a JSON document (jsonb before D39). Columns such as `action_id`, `propensity` and
 `policy_version` are denormalised copies for querying, written by `SqlLRSClient` only.
 
 ## D6 — xAPI IRIs use a placeholder root `https://mentora.example/xapi` (M1)
@@ -54,6 +56,7 @@ Bitnami's Moodle images are no longer freely maintained. The `moodle` service us
 in M7.
 
 ## D11 — pgvector ANN indexes deferred to M2 (M1)
+*Superseded by D17 and D39.*
 Corpus and memory sizes are small (hundreds to low thousands of rows), so exact search is
 fine for now. If needed, M2 adds an HNSW index through migration 0002.
 
@@ -94,8 +97,8 @@ needs no model downloads. Production config uses the real models. `tests/models/
 
 ## D17 — Retrieval scores in memory, not in pgvector (M2)
 A course has hundreds of passages, so BM25 and cosine scores are computed in numpy over
-an index loaded from `corpus_passages`. Embeddings are still stored in the pgvector column,
-so moving cosine search into SQL later (with an HNSW index) is a migration, not a redesign.
+an index loaded from `corpus_passages`. Embeddings are stored with the passages (a pgvector
+column before D39, a float array since), so a vector index could be added later.
 This supersedes D11.
 
 ## D18 — Concept tags on passages come from keyword matching (M2)
@@ -237,3 +240,18 @@ answer-key detection for "the answer to the quiz is C", "pick C" and yes/no keys
 questions only); quarantine at ingest for course text that instructs the tutor; and a
 fixed "outside this course" reply for off-topic questions, with no teacher escalation. A
 mutation test switches the safety layer off and checks that the suite then fails.
+
+## D39 — MongoDB instead of PostgreSQL/SQLite (deployment)
+Requested for the public demo. All persistence moved from SQLAlchemy/Alembic to MongoDB
+(`pymongo`; MongoDB Atlas free M0 in production, a local server in development, `mongomock`
+in tests and for throwaway policy simulations). Same entities and field names as SQL
+schema v1; link tables became embedded id lists (`Concept.prerequisite_ids`,
+`Item.concept_ids`). `mentora/db/store.py` keeps the unit-of-work behaviour the code relied
+on: identity map, dirty tracking (load, change attributes, commit), integer ids from a
+`counters` collection, references checked on insert, set-based cascade / set-null deletes,
+the old CHECK constraints in `validate()`, unique indexes, savepoints, and rollback from an
+undo journal. Trade-offs: no multi-document transactions on a standalone server, so a
+crash mid-commit can leave a partial write (Postgres was atomic); timestamps keep
+milliseconds, so events carry a `seq` to keep insertion order on equal timestamps; Atlas
+M0 allows 100 operations per second (a tutor turn uses about 25) and has no backups.
+Schema v1 and its Alembic history are retired; the version is now `v1-mongo`.

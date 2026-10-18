@@ -1,4 +1,4 @@
-"""Document base for MongoDB collections (docs/decisions.md D40).
+"""Document base for MongoDB collections (docs/decisions.md D39).
 
 Models are keyword-only dataclasses. The primary key field is stored as ``_id``. Things a
 relational database used to enforce are declared here and enforced by ``Store``:
