@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from uuid import uuid4
 
 import pytest
-from sqlalchemy import Engine
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from mentora.config import get_settings
-from mentora.db import Base, make_engine, make_session_factory
+from mentora.db import StoreFactory, connect
 from mentora.db import models as m
+from mentora.db.client import drop_mock
 
 
 @pytest.fixture(autouse=True)
@@ -19,26 +18,28 @@ def _fresh_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("MENTORA_RAG__EMBEDDER", "hashing")
     monkeypatch.setenv("MENTORA_RAG__RERANKER", "lexical")
     monkeypatch.setenv("MENTORA_RAG__GROUNDING_JUDGE", "lexical")
+    # In-memory MongoDB, so nothing ever touches a real server.
+    monkeypatch.setenv("MENTORA_DATABASE_URL", "mongomock://settings_default")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
 
 
 @pytest.fixture
-def engine() -> Iterator[Engine]:
-    eng = make_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(eng)
-    yield eng
-    eng.dispose()
+def db_url() -> Iterator[str]:
+    """A fresh in-memory MongoDB for one test."""
+    url = f"mongomock://t_{uuid4().hex[:12]}"
+    yield url
+    drop_mock(url)
 
 
 @pytest.fixture
-def session_factory(engine: Engine) -> sessionmaker[Session]:
-    return make_session_factory(engine)
+def session_factory(db_url: str) -> StoreFactory:
+    return connect(db_url)
 
 
 @pytest.fixture
-def seeded(session_factory: sessionmaker[Session]) -> dict[str, str | int]:
+def seeded(session_factory: StoreFactory) -> dict[str, str | int]:
     """One synthetic learner, course and session."""
     with session_factory.begin() as db:
         course = m.Course(code="SYN101", title="Synthetic Intro Course")
