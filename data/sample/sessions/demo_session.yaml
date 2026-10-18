@@ -1,0 +1,17 @@
+# A scripted learner session for the sample course (used by scripts/replay_session.py and
+# the end-to-end tests).
+steps:
+  - start: true
+  - message: "My goal is to finish 2 for loop exercises today"
+  - message: "First I'll re-read the loops section, then do the quiz."
+  - quiz: [w3-range-last, w3-range-step]
+  - present: w3-range-last
+  - answer: { item: w3-range-last, response: "10", confidence: 0.9, seconds: 20 }
+  - answer: { item: w3-range-last, response: "10", confidence: 0.8, seconds: 15 }
+  - message: "can I get a hint?"
+  - answer: { item: w3-range-last, response: "9", confidence: 0.6, seconds: 25 }
+  - present: w3-range-step
+  - answer: { item: w3-range-step, response: "A", confidence: 0.7, seconds: 30 }
+  - message: "I got it in the end because I traced the loop by hand. Next time I'll trace it first."
+  - message: "What does range(5) give?"
+  - end: true

@@ -1,0 +1,65 @@
+name: mentora
+
+x-mentora-env: &mentora-env
+  MENTORA_DATABASE_URL: postgresql+psycopg://mentora:mentora@postgres:5432/mentora
+  MENTORA_REDIS_URL: redis://redis:6379/0
+  MENTORA_LLM__BACKEND: ${MENTORA_LLM__BACKEND:-offline}
+  MENTORA_HOSTED_LLM_API_KEY: ${MENTORA_HOSTED_LLM_API_KEY:-}
+  MENTORA_PSEUDONYM_SALT: ${MENTORA_PSEUDONYM_SALT:-dev-only-salt}
+  MENTORA_SESSION_SECRET: ${MENTORA_SESSION_SECRET:-dev-only-session-secret-change-me}
+  MENTORA_JOBS__MODE: celery
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: mentora
+      POSTGRES_PASSWORD: mentora
+      POSTGRES_DB: mentora
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mentora -d mentora"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  api:
+    build: .
+    environment: *mentora-env
+    ports: ["8000:8000"]
+    volumes:
+      - hfcache:/root/.cache/huggingface   # embedding / reranker / NLI models
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+
+  worker:
+    build: .
+    command: celery -A mentora.worker.celery_app worker --loglevel=info
+    environment: *mentora-env
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+
+  # Dev Moodle for LTI 1.3 testing (M7). Opt-in: docker compose --profile lms up
+  # Needs a Moodle checkout in ./lms/moodle (see docs/runbook.md).
+  moodle:
+    profiles: ["lms"]
+    image: moodlehq/moodle-php-apache:8.3
+    ports: ["8080:80"]
+    volumes:
+      - ./lms/moodle:/var/www/html
+      - moodledata:/var/www/moodledata
+    depends_on:
+      postgres: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  moodledata:
+  hfcache:

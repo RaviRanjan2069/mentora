@@ -1,0 +1,52 @@
+# Synthetic audit set for the sample course (12 questions). The real audit set (target 200)
+# must be written by the team from the actual course material.
+# expected_passage_ids refer to ids produced by scripts/ingest_corpus.py on data/sample/corpus.
+questions:
+  - id: q01
+    question: What does the // operator do?
+    reference_answer: The // operator performs floor division, so 7 // 2 gives 3.
+    expected_passage_ids: [syn101-week1-variables-p003]
+  - id: q02
+    question: What type does input() return?
+    reference_answer: The input function always returns a string, so cast it with int or float before arithmetic.
+    expected_passage_ids: [syn101-faq-q1-p001, syn101-week1-variables-p004]
+  - id: q03
+    question: Can a variable name start with a digit?
+    reference_answer: Variable names cannot start with a digit; they may contain letters, digits and underscores.
+    expected_passage_ids: [syn101-week1-variables-p001]
+  - id: q04
+    question: What is the difference between = and ==?
+    reference_answer: The = sign is assignment while == tests equality.
+    expected_passage_ids: [syn101-week2-conditionals-p002]
+  - id: q05
+    question: How many branches of an if elif else chain can run?
+    reference_answer: At most one branch of an if/elif/else chain runs.
+    expected_passage_ids: [syn101-week2-conditionals-p001]
+  - id: q06
+    question: What is short-circuit evaluation?
+    reference_answer: Python stops evaluating and / or as soon as the result is known.
+    expected_passage_ids: [syn101-week2-conditionals-p002]
+  - id: q07
+    question: What causes an infinite loop?
+    reference_answer: A while loop never ends if nothing in the body makes the condition false.
+    expected_passage_ids: [syn101-week3-loops-p001, syn101-faq-q2-p001]
+  - id: q08
+    question: What numbers does range(5) produce?
+    reference_answer: range(5) gives 0, 1, 2, 3 and 4; it starts at 0 and stops before 5.
+    expected_passage_ids: [syn101-week3-loops-p002]
+  - id: q09
+    question: What does the continue statement do?
+    reference_answer: continue skips the rest of the current iteration and jumps to the next condition check.
+    expected_passage_ids: [syn101-week3-loops-p001]
+  - id: q10
+    question: What does it mean that strings are immutable?
+    reference_answer: You cannot change a string in place; operations like upper() return a new string.
+    expected_passage_ids: [syn101-week3-loops-p003]
+  - id: q11
+    question: What does "python"[1:4] give?
+    reference_answer: The slice "python"[1:4] gives "yth" because it includes the start and excludes the stop index.
+    expected_passage_ids: [syn101-week3-loops-p003]
+  - id: q12
+    question: How does Python group statements into a block?
+    reference_answer: Python uses indentation, not braces, to group statements.
+    expected_passage_ids: [syn101-week2-conditionals-p001]

@@ -1,0 +1,63 @@
+# Synthetic quiz items for the sample course (SYN101). graded: true items get the
+# academic-integrity rules (no worked examples, Socratic style only, no answers).
+items:
+  - external_id: w1-floor-div
+    text: "What does 7 // 2 evaluate to in Python?"
+    answer_key: "3"
+    item_type: short
+    concepts: [expressions]
+    graded: false
+  - external_id: w1-input-type
+    text: "What type does input() always return?\n(A) int\n(B) float\n(C) str\n(D) It depends on what the user types"
+    answer_key: C
+    item_type: mcq
+    concepts: [io, types]
+    graded: false
+  - external_id: w1-var-name
+    text: "Which of these is NOT a valid variable name?\n(A) total_2\n(B) _count\n(C) 2total\n(D) Total"
+    answer_key: C
+    item_type: mcq
+    concepts: [variables]
+    graded: true
+  - external_id: w2-elif
+    text: "In an if / elif / else chain, how many branches can run at most?\n(A) 0\n(B) 1\n(C) 2\n(D) All of them"
+    answer_key: B
+    item_type: mcq
+    concepts: [conditionals]
+    graded: false
+  - external_id: w2-short-circuit
+    text: "If x is 0, is the division in `x != 0 and 10 / x > 1` evaluated? (yes/no)"
+    answer_key: "no"
+    item_type: short
+    concepts: [boolean_logic]
+    graded: true
+  - external_id: w3-range-last
+    text: "What is the last number printed by:\nfor i in range(10):\n    print(i)"
+    answer_key: "9"
+    item_type: short
+    concepts: [for_loops]
+    graded: false
+  - external_id: w3-range-step
+    text: "Which numbers does range(2, 10, 3) produce?\n(A) 2, 5, 8\n(B) 2, 5, 8, 11\n(C) 3, 6, 9\n(D) 2, 3, 4"
+    answer_key: A
+    item_type: mcq
+    concepts: [for_loops]
+    graded: true
+  - external_id: w3-while-zero
+    text: "Can the body of a while loop run zero times? (yes/no)"
+    answer_key: "yes"
+    item_type: short
+    concepts: [while_loops]
+    graded: false
+  - external_id: w3-slice
+    text: 'What does "python"[1:4] give?'
+    answer_key: "yth"
+    item_type: short
+    concepts: [strings]
+    graded: false
+  - external_id: w3-immutable
+    text: "After s = 'abc' and t = s.upper(), what is s?\n(A) 'ABC'\n(B) 'abc'\n(C) an error\n(D) None"
+    answer_key: B
+    item_type: mcq
+    concepts: [strings]
+    graded: true

@@ -1,0 +1,11 @@
+# Synthetic course FAQ (sample data only).
+faq:
+  - q: Why does input() give me a string even when I type a number?
+    a: The input function always returns a string. Cast the result with int() or float() before you do arithmetic with it.
+    week: 1
+  - q: Why is my while loop running forever?
+    a: A while loop stops only when its condition becomes false. Check that the body changes a variable used in the condition on every iteration.
+    week: 3
+  - q: Does range(10) include 10?
+    a: No. range(10) stops before 10, so it produces the ten integers from 0 to 9.
+    week: 3

@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+htmlcov/
+
+# Secrets and local data (never commit real learner data)
+.env
+*.db
+*.sqlite
+data/private/
+data/assistments/
+llm_cache/
+models/
+reports/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+
+# IDE / leftovers from the legacy Java project
+.idea/
+.vscode/
+target/
+oracleJdk-27/

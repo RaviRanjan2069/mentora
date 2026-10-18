@@ -1,0 +1,27 @@
+# SYNTHETIC PLACEHOLDER. Replace with the real course's 20-40 concepts before the pilot.
+# key: stable id used in items, passages and goals. prereqs: list of keys (must form a DAG).
+course:
+  code: SYN101
+  title: Introduction to Programming (synthetic)
+  starts_on: 2026-09-07   # week 1 starts here (used by teacher rules such as week_lte)
+concepts:
+  - { key: variables,        name: Variables and assignment,      week: 1, prereqs: [] }
+  - { key: types,            name: Basic data types,               week: 1, prereqs: [variables] }
+  - { key: expressions,      name: Expressions and operators,      week: 1, prereqs: [types] }
+  - { key: io,               name: Input and output,               week: 1, prereqs: [variables] }
+  - { key: conditionals,     name: Conditionals,                   week: 2, prereqs: [expressions] }
+  - { key: boolean_logic,    name: Boolean logic,                  week: 2, prereqs: [expressions] }
+  - { key: while_loops,      name: While loops,                    week: 3, prereqs: [conditionals] }
+  - { key: for_loops,        name: For loops and ranges,           week: 3, prereqs: [while_loops] }
+  - { key: strings,          name: Strings,                        week: 3, prereqs: [types] }
+  - { key: lists,            name: Lists,                          week: 4, prereqs: [for_loops] }
+  - { key: tuples,           name: Tuples,                         week: 4, prereqs: [lists] }
+  - { key: dicts,            name: Dictionaries,                   week: 5, prereqs: [lists] }
+  - { key: sets,             name: Sets,                           week: 5, prereqs: [lists] }
+  - { key: functions,        name: Functions,                      week: 6, prereqs: [conditionals, for_loops] }
+  - { key: scope,            name: Scope and parameters,           week: 6, prereqs: [functions] }
+  - { key: recursion,        name: Recursion,                      week: 7, prereqs: [functions] }
+  - { key: files,            name: File handling,                  week: 8, prereqs: [strings, io] }
+  - { key: exceptions,       name: Exceptions,                     week: 8, prereqs: [functions] }
+  - { key: classes,          name: Classes and objects,            week: 9, prereqs: [functions, dicts] }
+  - { key: complexity,       name: Basic algorithmic complexity,   week: 10, prereqs: [for_loops, recursion] }

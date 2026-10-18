@@ -1,0 +1,40 @@
+# Render Blueprint: the public demo on Render's free web service (see docs/deploy.md).
+# The database is Neon's free PostgreSQL (Render's free Postgres expires after 30 days).
+services:
+  - type: web
+    name: mentora
+    runtime: docker
+    plan: free
+    region: singapore
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # Secrets: entered in the Render dashboard, never committed.
+      - key: MENTORA_DATABASE_URL        # postgresql+psycopg://...neon.tech/neondb?sslmode=require
+        sync: false
+      - key: MENTORA_DEV_TEACHER_CODE    # teachers type this on the sign-in page
+        sync: false
+      - key: MENTORA_SESSION_SECRET
+        generateValue: true
+      - key: MENTORA_PSEUDONYM_SALT
+        generateValue: true
+      # Free demo: offline template replies and model-free retrieval (fits 512 MB, no API key).
+      # Must match the embedder used when seeding (scripts/seed_demo.py).
+      - key: MENTORA_LLM__BACKEND
+        value: offline
+      - key: MENTORA_RAG__EMBEDDER
+        value: hashing
+      - key: MENTORA_RAG__RERANKER
+        value: lexical
+      - key: MENTORA_RAG__GROUNDING_JUDGE
+        value: lexical
+      # Offline templates can only answer from the notes; "open" needs a real model.
+      - key: MENTORA_RAG__ANSWER_MODE
+        value: course_only
+      # No Moodle in the demo: dev sign-in stays on, teachers need the code above.
+      - key: MENTORA_DEV_LOGIN
+        value: "true"
+      - key: MENTORA_COOKIE_HTTPS_ONLY
+        value: "true"
+      - key: MENTORA_JOBS__MODE
+        value: inline
