@@ -1,7 +1,9 @@
-# Start the free AI-tutor link for the live Mentora site (docs/deploy.md, "Ollama"):
+# Start (or repair) the free AI-tutor link for the live Mentora site (docs/deploy.md, "Ollama"):
 #   Ollama (127.0.0.1:11434) -> token gateway (127.0.0.1:11435) -> ngrok permanent domain.
-# Reads OLLAMA_GATEWAY_TOKEN and NGROK_DOMAIN from the git-ignored .env. Safe to run twice:
-# parts that are already running are left alone.
+# Reads OLLAMA_GATEWAY_TOKEN, NGROK_DOMAIN and (optional) SITE_URL from the git-ignored .env.
+# Everything runs hidden; logs go to %LOCALAPPDATA%\Mentora\logs. Safe to run again at any
+# time: parts that are already running are left alone, so a scheduled task can run it every
+# few minutes to restart anything that stopped (scripts/install_tutor_autostart.ps1).
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\start_tutor_tunnel.ps1
 
@@ -15,6 +17,8 @@ Get-Content $envFile | ForEach-Object {
 foreach ($k in "OLLAMA_GATEWAY_TOKEN", "NGROK_DOMAIN") {
     if (-not $vars[$k]) { throw "$k is missing in $envFile" }
 }
+$logs = Join-Path $env:LOCALAPPDATA "Mentora\logs"
+New-Item -ItemType Directory -Force $logs | Out-Null
 
 function Test-Up([string]$url, [hashtable]$headers = @{}) {
     try {
@@ -23,35 +27,45 @@ function Test-Up([string]$url, [hashtable]$headers = @{}) {
     } catch { return $false }
 }
 
+function Say([string]$text, [string]$color = "Gray") {
+    Write-Host $text -ForegroundColor $color
+    Add-Content -Path (Join-Path $logs "status.log") -Value "$(Get-Date -Format s)  $text"
+}
+
 # 1. Ollama (normally already running from the tray)
 if (-not (Test-Up "http://127.0.0.1:11434/api/tags")) {
-    Write-Host "Starting Ollama..."
+    Say "Starting Ollama..."
     Start-Process ollama -ArgumentList "serve" -WindowStyle Hidden
     Start-Sleep -Seconds 5
 }
 
 # 2. Token gateway (never expose Ollama itself: its API can pull and delete models)
 if (-not (Get-NetTCPConnection -LocalPort 11435 -State Listen -ErrorAction SilentlyContinue)) {
-    Write-Host "Starting the token gateway..."
+    Say "Starting the token gateway..."
     $env:OLLAMA_GATEWAY_TOKEN = $vars.OLLAMA_GATEWAY_TOKEN
     $python = Join-Path $root ".venv\Scripts\python.exe"
-    Start-Process $python -ArgumentList "scripts\ollama_gateway.py" -WorkingDirectory $root -WindowStyle Minimized
+    Start-Process $python -ArgumentList "scripts\ollama_gateway.py" -WorkingDirectory $root `
+        -WindowStyle Hidden -RedirectStandardOutput (Join-Path $logs "gateway.out.log") `
+        -RedirectStandardError (Join-Path $logs "gateway.log")
     Start-Sleep -Seconds 4
 }
 
 # 3. ngrok on the permanent domain
 if (-not (Get-Process ngrok -ErrorAction SilentlyContinue)) {
-    Write-Host "Starting ngrok..."
+    Say "Starting ngrok..."
     $ngrok = Join-Path $env:LOCALAPPDATA "ngrok\ngrok.exe"
-    Start-Process $ngrok -ArgumentList "http", "11435", "--url=$($vars.NGROK_DOMAIN)" -WindowStyle Minimized
+    Start-Process $ngrok -WindowStyle Hidden -ArgumentList "http", "11435", `
+        "--url=$($vars.NGROK_DOMAIN)", "--log", (Join-Path $logs "ngrok.log")
     Start-Sleep -Seconds 6
 }
 
 # 4. Check the whole path the live site uses
 $auth = @{ Authorization = "Bearer $($vars.OLLAMA_GATEWAY_TOKEN)" }
 if (Test-Up "https://$($vars.NGROK_DOMAIN)/v1/models" $auth) {
-    Write-Host "OK: the live tutor can reach Ollama at https://$($vars.NGROK_DOMAIN)" -ForegroundColor Green
+    Say "OK: the live tutor can reach Ollama at https://$($vars.NGROK_DOMAIN)" "Green"
 } else {
-    Write-Host "Not reachable yet: https://$($vars.NGROK_DOMAIN) (wait a few seconds and run again)" -ForegroundColor Yellow
+    Say "Not reachable yet: https://$($vars.NGROK_DOMAIN) (the next run retries)" "Yellow"
 }
-Write-Host "Keep this computer awake; closing the minimized gateway or ngrok windows stops the tutor."
+
+# 5. While this computer is on, also keep the free web service awake.
+if ($vars.SITE_URL) { [void](Test-Up "$($vars.SITE_URL)/health") }

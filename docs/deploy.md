@@ -113,8 +113,10 @@ no backups: before such a change, export what matters with `mongodump` or Compas
 
 ## Limits and risks
 
-- **Cold starts**: after 15 idle minutes the service sleeps; the next visitor waits about a
-  minute.
+- **Cold starts**: Render's free service sleeps after 15 idle minutes (about a minute to
+  wake). `.github/workflows/keepalive.yml` pings `/health` every 10 minutes so it stays
+  awake (750 free hours a month cover one service all month). GitHub can start scheduled
+  runs late, and pauses schedules after 60 days without repository activity.
 - **Ephemeral disk**: anything written under the container (`models/`, trained policy
   files, `llm_cache/`) is lost on every restart or redeploy. Learner data, sessions,
   escalations, memory and uploaded course material are in Atlas and survive.
@@ -164,9 +166,11 @@ fail after the timeout (switch back to `offline` when you stop).
    <https://ngrok.com/download>, unzipped to `%LOCALAPPDATA%\ngrok`).
 2. Put a long random token and your domain in the git-ignored `.env`:
    `OLLAMA_GATEWAY_TOKEN=<token>` and `NGROK_DOMAIN=<name>.ngrok-free.dev`.
-3. Run `powershell -ExecutionPolicy Bypass -File scripts\start_tutor_tunnel.ps1` (or a
-   desktop shortcut to it) after every restart. It starts Ollama if needed, the token
-   gateway on 127.0.0.1:11435 (`scripts/ollama_gateway.py`; never tunnel Ollama's port
+3. Run `powershell -ExecutionPolicy Bypass -File scripts\install_tutor_autostart.ps1
+   -NeverSleepOnAC` once: a scheduled task runs `scripts\start_tutor_tunnel.ps1` hidden at
+   sign-in and every 5 minutes, restarting whatever stopped, and the computer no longer
+   sleeps on its own while plugged in (`-Remove` uninstalls the task). The script starts
+   Ollama if needed, the token gateway on 127.0.0.1:11435 (`scripts/ollama_gateway.py`; never tunnel Ollama's port
    11434 itself: its API can pull and delete models) and ngrok on the permanent domain,
    then checks the whole path. The URL never changes, so Render is set once.
    (A Cloudflare quick tunnel, `cloudflared tunnel --url http://127.0.0.1:11435`, needs no
@@ -174,6 +178,9 @@ fail after the timeout (switch back to `offline` when you stop).
 4. On Render set: `MENTORA_LLM__BACKEND=local`, `MENTORA_LLM__LOCAL_MODEL=llama3.2:3b`,
    `MENTORA_LOCAL_LLM_BASE_URL=https://<name>.ngrok-free.dev/v1`,
    `MENTORA_LOCAL_LLM_API_KEY=<token>`, `MENTORA_LLM__TIMEOUT_S=180`,
-   `MENTORA_RAG__ANSWER_MODE=open`, `MENTORA_RAG__ANSWER_REGENERATIONS=0`.
-   Teacher console → System status shows whether the model is reachable.
+   `MENTORA_RAG__ANSWER_MODE=open`, `MENTORA_RAG__ANSWER_REGENERATIONS=0`, and
+   `MENTORA_LLM__LOCAL_FALLBACK=offline`: while the computer is off, the tutor answers from
+   the course notes (shown as Demo mode) instead of failing, and goes back to the model
+   within a minute of it being reachable again. Teacher console → System status shows
+   whether the model is reachable.
 5. To stop: set `MENTORA_LLM__BACKEND=offline` and `MENTORA_RAG__ANSWER_MODE=course_only`.
