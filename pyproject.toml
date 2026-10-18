@@ -17,10 +17,8 @@ dependencies = [
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
     "pyyaml>=6",
-    "sqlalchemy>=2.0.30",
-    "alembic>=1.13",
-    "psycopg[binary]>=3.2",
-    "pgvector>=0.3",
+    "pymongo>=4.8",
+    "mongomock>=4.2",          # in-memory MongoDB: tests and throwaway policy simulations
     "celery>=5.4",
     "redis>=5",
     "httpx>=0.27",
@@ -70,7 +68,6 @@ ignore = ["SIM905"]  # word lists as split strings read better than long literal
 "mentora/question_bank.py" = ["E501"]
 
 [tool.ruff.lint.isort]
-known-third-party = ["alembic"]
 known-first-party = ["mentora"]
 
 [tool.mypy]
@@ -79,7 +76,7 @@ strict = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["pgvector.*", "celery.*", "rank_bm25.*", "pptx.*", "sentence_transformers.*", "hmmlearn.*", "sklearn.*", "scipy.*"]
+module = ["mongomock.*", "celery.*", "rank_bm25.*", "pptx.*", "sentence_transformers.*", "hmmlearn.*", "sklearn.*", "scipy.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

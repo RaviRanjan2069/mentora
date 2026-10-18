@@ -37,30 +37,26 @@ jobs:
           ruff format --check mentora tests scripts alembic
       - name: Types
         run: mypy mentora scripts
-      - name: Tests (offline, SQLite, FakeLLM)
+      - name: Tests (offline, in-memory MongoDB, FakeLLM)
         run: pytest
 
-  postgres:
+  mongo:
     runs-on: ubuntu-latest
     services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_USER: mentora
-          POSTGRES_PASSWORD: mentora
-          POSTGRES_DB: mentora
-        ports: ["5432:5432"]
+      mongo:
+        image: mongo:7
+        ports: ["27017:27017"]
         options: >-
-          --health-cmd "pg_isready -U mentora" --health-interval 5s --health-retries 10
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand(\"ping\").ok'"
+          --health-interval 5s --health-retries 10
     env:
-      MENTORA_DATABASE_URL: postgresql+psycopg://mentora:mentora@localhost:5432/mentora
+      MENTORA_TEST_MONGODB_URL: mongodb://localhost:27017
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
-      # The ml extra (CPU-only torch) is needed for type-checking and the KT/offline tests.
-      - run: pip install --extra-index-url https://download.pytorch.org/whl/cpu -e ".[dev,ml]"
-      - name: Migrations and pgvector round-trip
-        run: pytest -m postgres
+      - run: pip install -e ".[dev]"
+      - name: Indexes, round-trip and cascades on a real MongoDB
+        run: pytest -m mongo tests/mongo

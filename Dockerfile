@@ -18,11 +18,10 @@ COPY scripts ./scripts
 # CPU-only PyTorch keeps the image small; the ml extra adds the embedding/rerank/NLI models.
 RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu ".[ml]"
 
-COPY alembic.ini ./
-COPY alembic ./alembic
 COPY data ./data
 COPY --from=web /web/dist ./frontend/dist
 
 EXPOSE 8000
-# PORT is set by hosts such as Render; proxy headers keep https URLs correct behind them.
-CMD ["sh", "-c", "alembic upgrade head && exec uvicorn mentora.api.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]
+# The API creates MongoDB indexes on start (idempotent). PORT is set by hosts such as
+# Render; proxy headers keep https URLs correct behind them.
+CMD ["sh", "-c", "exec uvicorn mentora.api.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]

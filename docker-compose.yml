@@ -1,7 +1,7 @@
 name: mentora
 
 x-mentora-env: &mentora-env
-  MENTORA_DATABASE_URL: postgresql+psycopg://mentora:mentora@postgres:5432/mentora
+  MENTORA_DATABASE_URL: mongodb://mongo:27017/mentora
   MENTORA_REDIS_URL: redis://redis:6379/0
   MENTORA_LLM__BACKEND: ${MENTORA_LLM__BACKEND:-offline}
   MENTORA_HOSTED_LLM_API_KEY: ${MENTORA_HOSTED_LLM_API_KEY:-}
@@ -10,18 +10,13 @@ x-mentora-env: &mentora-env
   MENTORA_JOBS__MODE: celery
 
 services:
-  postgres:
-    image: pgvector/pgvector:pg16
-    environment:
-      POSTGRES_USER: mentora
-      POSTGRES_PASSWORD: mentora
-      POSTGRES_DB: mentora
-    ports: ["5432:5432"]
+  mongo:
+    image: mongo:7
+    ports: ["27017:27017"]
     volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - mongodata:/data/db
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mentora -d mentora"]
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 5s
       retries: 10
 
@@ -36,7 +31,7 @@ services:
     volumes:
       - hfcache:/root/.cache/huggingface   # embedding / reranker / NLI models
     depends_on:
-      postgres: { condition: service_healthy }
+      mongo: { condition: service_healthy }
       redis: { condition: service_started }
 
   worker:
@@ -44,11 +39,26 @@ services:
     command: celery -A mentora.worker.celery_app worker --loglevel=info
     environment: *mentora-env
     depends_on:
-      postgres: { condition: service_healthy }
+      mongo: { condition: service_healthy }
       redis: { condition: service_started }
 
   # Dev Moodle for LTI 1.3 testing (M7). Opt-in: docker compose --profile lms up
-  # Needs a Moodle checkout in ./lms/moodle (see docs/runbook.md).
+  # Needs a Moodle checkout in ./lms/moodle (see docs/runbook.md). Moodle needs a SQL
+  # database of its own; Mentora itself uses MongoDB.
+  moodle-db:
+    profiles: ["lms"]
+    image: postgres:16
+    environment:
+      POSTGRES_USER: moodle
+      POSTGRES_PASSWORD: moodle
+      POSTGRES_DB: moodle
+    volumes:
+      - moodledb:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moodle -d moodle"]
+      interval: 5s
+      retries: 10
+
   moodle:
     profiles: ["lms"]
     image: moodlehq/moodle-php-apache:8.3
@@ -57,9 +67,10 @@ services:
       - ./lms/moodle:/var/www/html
       - moodledata:/var/www/moodledata
     depends_on:
-      postgres: { condition: service_healthy }
+      moodle-db: { condition: service_healthy }
 
 volumes:
-  pgdata:
+  mongodata:
+  moodledb:
   moodledata:
   hfcache:
