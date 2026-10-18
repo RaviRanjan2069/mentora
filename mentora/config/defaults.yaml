@@ -15,6 +15,10 @@ llm:
   hosted_fallbacks: true   # server-side refusal fallback ("default" routing)
   local_model: llama3.2:3b   # small enough to answer in real time on a laptop CPU
   local_temperature: 0.2
+  # When the local model server cannot be reached: none (the turn fails) | offline (template
+  # replies, shown as "Demo mode"); the model is tried again after local_retry_after_s.
+  local_fallback: none
+  local_retry_after_s: 60
   max_tokens: 16000        # per reply ceiling; includes thinking tokens on hosted models
   timeout_s: 60
   max_retries: 2

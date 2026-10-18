@@ -79,6 +79,18 @@ def warm_up(state: Any) -> None:
         log.warning("warm-up failed", exc_info=True)
 
 
+def effective_llm_backend(state: Any) -> str:
+    """The configured back-end, or "offline" while a local model is unreachable and the
+    templates stand in (so the UI shows its Demo mode notice)."""
+    from mentora.llm.backends.fallback import FallbackBackend
+
+    orch = getattr(state, "orchestrator", None)
+    backend = getattr(getattr(orch, "client", None), "backend", None)
+    if isinstance(backend, FallbackBackend) and backend.degraded:
+        return "offline"
+    return str(state.settings.llm.backend)
+
+
 def current_user(request: Request) -> User:
     raw = request.session.get("user")
     if not raw:

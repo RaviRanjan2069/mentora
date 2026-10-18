@@ -1,0 +1,23 @@
+name: Keep the demo awake
+
+# Render's free web service sleeps after 15 minutes without traffic (about a minute to wake).
+# One small request every 10 minutes keeps it awake; the 750 free instance-hours a month
+# cover one service running all month. It also keeps the Atlas M0 cluster from pausing.
+# GitHub may start scheduled runs a few minutes late, and pauses schedules in a repository
+# with no activity for 60 days (re-enable under Actions).
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+env:
+  SITE: https://mentora-sdlb.onrender.com
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping /health
+        run: curl -fsS --retry 5 --retry-delay 20 --retry-all-errors --max-time 120 "$SITE/health"

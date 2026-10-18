@@ -42,6 +42,8 @@ class LLMSettings(BaseModel):
     hosted_fallbacks: bool
     local_model: str
     local_temperature: float = Field(ge=0)
+    local_fallback: Literal["none", "offline"] = "none"
+    local_retry_after_s: float = Field(default=60.0, gt=0)
     max_tokens: int = Field(gt=0)
     timeout_s: float = Field(gt=0)
     max_retries: int = Field(ge=0)

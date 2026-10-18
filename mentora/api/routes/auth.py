@@ -8,7 +8,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from mentora.api.deps import User, current_user, sign_in
+from mentora.api.deps import User, current_user, effective_llm_backend, sign_in
 from mentora.config.settings import Settings
 from mentora.db import models as m
 from mentora.privacy import pseudonymize
@@ -39,7 +39,7 @@ def me(request: Request, user: Annotated[User, Depends(current_user)]) -> MeOut:
         role=user.role,
         name=user.name,
         via=user.via,
-        llm_backend=s.llm.backend,
+        llm_backend=effective_llm_backend(request.app.state),
         mode=s.app.mode,
     )
 
@@ -70,7 +70,7 @@ def dev_login(body: DevLoginIn, request: Request) -> MeOut:
         role=user.role,
         name=user.name,
         via=user.via,
-        llm_backend=s.llm.backend,
+        llm_backend=effective_llm_backend(request.app.state),
         mode=s.app.mode,
     )
 

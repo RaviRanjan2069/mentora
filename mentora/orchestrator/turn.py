@@ -809,7 +809,10 @@ class Orchestrator:
             if action.agent is not None
             else []
         )
-        open_mode = self.settings.rag.answer_mode == "open"
+        # Open answers need a real model; while a local model is unreachable and templates
+        # stand in (llm.local_fallback), answer from the notes as in course_only mode.
+        model_down = bool(getattr(self.client.backend, "degraded", False))
+        open_mode = self.settings.rag.answer_mode == "open" and not model_down
         answers = action == WAIT or (spec is not None and spec.needs_rag)
         if open_mode and learner_text and request in ("question", "explanation") and answers:
             # Any question gets a genuine answer: from the notes when they cover it,
@@ -820,7 +823,10 @@ class Orchestrator:
                 rt.last_passages = passages
             on_topic = bool(passages) and not self._offtopic(learner_text, passages)
             chosen = passages if on_topic else []
-            return self._open_answer(rt, learner_text, chosen, item), []
+            reply = self._open_answer(rt, learner_text, chosen, item)
+            if not getattr(self.client.backend, "degraded", False):
+                return reply, []
+            # The model became unreachable during this answer: answer from the notes instead.
         if request == "question" and learner_text and passages:
             # Whatever move was chosen (exploration included), an off-topic question gets the
             # plain 'outside this course' reply; trying to ground it would wrongly escalate.

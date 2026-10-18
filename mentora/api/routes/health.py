@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from pymongo.errors import PyMongoError
 
 from mentora import SCHEMA_VERSION, __version__
-from mentora.api.deps import db_session
+from mentora.api.deps import db_session, effective_llm_backend
 from mentora.config.settings import Settings
 from mentora.db import Store
 
@@ -38,6 +38,6 @@ def health(request: Request, db: Annotated[Store, Depends(db_session)]) -> Healt
         version=__version__,
         schema_version=SCHEMA_VERSION,
         mode=settings.app.mode,
-        llm_backend=settings.llm.backend,
+        llm_backend=effective_llm_backend(request.app.state),
         database=database,
     )

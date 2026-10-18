@@ -305,13 +305,19 @@ def make_backend(settings: Settings) -> LLMBackend:
     if cfg.backend == "local":
         from mentora.llm.backends.local import LocalBackend
 
-        return LocalBackend(
+        local = LocalBackend(
             cfg.local_model,
             settings.local_llm_base_url,
             temperature=cfg.local_temperature,
             timeout_s=cfg.timeout_s,
             api_key=settings.local_llm_api_key.get_secret_value() or None,
         )
+        if cfg.local_fallback == "none":
+            return local
+        from mentora.llm.backends.fallback import FallbackBackend
+        from mentora.llm.backends.offline import OfflineLLM
+
+        return FallbackBackend(local, OfflineLLM(), retry_after_s=cfg.local_retry_after_s)
     if cfg.backend == "offline":
         from mentora.llm.backends.offline import OfflineLLM
 
