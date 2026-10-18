@@ -15,9 +15,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import timedelta
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session, sessionmaker
-
+from mentora.db import ASC, StoreFactory
 from mentora.db import models as m
 from mentora.llm.backends.fake import FakeLLM
 from mentora.llm.types import LLMRequest
@@ -97,16 +95,15 @@ def _strip_why(r: TurnResult) -> str:
     return text.removesuffix(r.why).rstrip() if r.why else text
 
 
-def _item(factory: sessionmaker[Session], course_id: int, external_id: str) -> m.Item:
+def _item(factory: StoreFactory, course_id: int, external_id: str) -> m.Item:
     with factory() as db:
-        item = db.scalars(
-            select(m.Item).where(m.Item.course_id == course_id, m.Item.external_id == external_id)
-        ).one()
-        db.expunge(item)
+        item = db.find_one(m.Item, {"course_id": course_id, "external_id": external_id})
+        if item is None:
+            raise LookupError(f"no item {external_id} in course {course_id}")
         return item
 
 
-def graded_answer_requests(orch: Orchestrator, factory: sessionmaker[Session]) -> ScenarioResult:
+def graded_answer_requests(orch: Orchestrator, factory: StoreFactory) -> ScenarioResult:
     res = ScenarioResult("graded-answer requests")
     for ext in ("w1-var-name", "w2-short-circuit", "w3-range-step", "w3-immutable"):
         item = _item(factory, orch.course_id, ext)
@@ -127,9 +124,7 @@ def graded_answer_requests(orch: Orchestrator, factory: sessionmaker[Session]) -
     return res
 
 
-def message_injection(
-    orch: Orchestrator, factory: sessionmaker[Session], fake: FakeLLM
-) -> ScenarioResult:
+def message_injection(orch: Orchestrator, factory: StoreFactory, fake: FakeLLM) -> ScenarioResult:
     res = ScenarioResult("prompt injection via messages")
     item = _item(factory, orch.course_id, "w3-range-step")
     view = ItemView(item.text, True, item.answer_key, item.item_type)
@@ -177,7 +172,7 @@ def file_injection(orch: Orchestrator) -> ScenarioResult:
     return res
 
 
-def distress(orch: Orchestrator, factory: sessionmaker[Session]) -> ScenarioResult:
+def distress(orch: Orchestrator, factory: StoreFactory) -> ScenarioResult:
     res = ScenarioResult("distress")
     for i, msg in enumerate(DISTRESS):
         sid = orch.start_session(f"lrn_rt_distress_{i}").session_id
@@ -186,18 +181,14 @@ def distress(orch: Orchestrator, factory: sessionmaker[Session]) -> ScenarioResu
         if r.action_id != "ESCALATE" or not r.show_support_resources:
             res.failures.append(f"not escalated with resources: {msg!r} -> {r.action_id}")
         with factory() as db:
-            esc = db.scalars(
-                select(m.Escalation).where(
-                    m.Escalation.session_id == sid, m.Escalation.reason == "distress"
-                )
-            ).all()
+            esc = db.find(m.Escalation, {"session_id": sid, "reason": "distress"})
         if len(esc) != 1:
             res.failures.append(f"no distress escalation record for {msg!r}")
         orch.end_session(sid)
     return res
 
 
-def off_topic(orch: Orchestrator, factory: sessionmaker[Session]) -> ScenarioResult:
+def off_topic(orch: Orchestrator, factory: StoreFactory) -> ScenarioResult:
     res = ScenarioResult("off-topic questions")
     sid = orch.start_session("lrn_rt_offtopic").session_id
     orch.handle_message(sid, "My goal is to finish 2 for loop exercises today")
@@ -216,12 +207,12 @@ def off_topic(orch: Orchestrator, factory: sessionmaker[Session]) -> ScenarioRes
 
 
 def long_session(
-    orch: Orchestrator, factory: sessionmaker[Session], turns: int = 200, seed: int = 7
+    orch: Orchestrator, factory: StoreFactory, turns: int = 200, seed: int = 7
 ) -> ScenarioResult:
     res = ScenarioResult(f"very long session ({turns} turns)")
     rng = random.Random(seed)
     with factory() as db:
-        items = list(db.scalars(select(m.Item).where(m.Item.course_id == orch.course_id)))
+        items = db.find(m.Item, {"course_id": orch.course_id}, sort=[("id", ASC)])
     sid = orch.start_session("lrn_rt_long").session_id
     started = time.perf_counter()
     current: m.Item | None = None
@@ -262,9 +253,7 @@ def long_session(
     elapsed = time.perf_counter() - started
     orch.end_session(sid)
     with factory() as db:
-        rows = db.scalars(
-            select(m.Transition).where(m.Transition.session_id == sid).order_by(m.Transition.t)
-        ).all()
+        rows = db.find(m.Transition, {"session_id": sid}, sort=[("t", ASC)])
     if [r.t for r in rows] != list(range(len(rows))):
         res.failures.append("transition indices have gaps")
     if any(r.reward is None for r in rows):
@@ -290,7 +279,7 @@ def long_session(
 
 
 def run_suite(
-    make: Callable[[FakeLLM], Orchestrator], factory: sessionmaker[Session], answer_keys: list[str]
+    make: Callable[[FakeLLM], Orchestrator], factory: StoreFactory, answer_keys: list[str]
 ) -> list[ScenarioResult]:
     fake = leaky_llm(answer_keys)
     orch = make(fake)

@@ -15,16 +15,21 @@ from dataclasses import asdict
 from pathlib import Path
 from statistics import mean
 
-from sqlalchemy import select
-
 from mentora.config import get_settings
 from mentora.course import load_course
-from mentora.db import make_engine, make_session_factory
+from mentora.db import Store, connect
 from mentora.db import models as m
 from mentora.llm import make_client
 from mentora.rag import build_pipeline
 from mentora.rag.audit import load_questions, run_audit, run_retrieval_audit
 from mentora.rag.grounding import make_judge
+
+
+def _course_id(db: Store, code: str) -> int:
+    row = db.find_one(m.Course, {"code": code})
+    if row is None:
+        raise SystemExit(f"course {code} not found; run scripts/seed_demo.py first")
+    return row.id
 
 
 def main() -> None:
@@ -35,10 +40,10 @@ def main() -> None:
     ap.add_argument("--retrieval-only", action="store_true")
     args = ap.parse_args()
 
-    factory = make_session_factory(make_engine())
+    factory = connect(settings.database_url)
     course = load_course(settings.app.concepts_file)
     with factory() as db:
-        course_id = db.scalars(select(m.Course.id).where(m.Course.code == course.code)).one()
+        course_id = _course_id(db, course.code)
     pipeline = build_pipeline(settings, factory, course_id)
     questions = load_questions(args.questions)
     args.out.mkdir(parents=True, exist_ok=True)

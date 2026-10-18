@@ -19,13 +19,13 @@ def ping() -> str:
 
 @celery_app.task(name="mentora.end_session_memory")  # type: ignore[untyped-decorator]
 def end_session_memory(session_id: str) -> dict[str, Any]:
-    from mentora.db import make_engine, make_session_factory
+    from mentora.db import connect
     from mentora.llm.client import make_client
     from mentora.memory.reflect_curate import ReflectiveMemory
 
     settings = get_settings()
     memory = ReflectiveMemory(
-        settings, make_session_factory(make_engine()), client=make_client(settings)
+        settings, connect(settings.database_url), client=make_client(settings)
     )
     return asdict(memory.curate_session(session_id))
 

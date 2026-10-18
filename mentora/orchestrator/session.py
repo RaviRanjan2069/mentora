@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session, sessionmaker
-
 from mentora.config.settings import Settings
 from mentora.course import load_course, upsert_course
+from mentora.db import StoreFactory
 from mentora.db import models as m
 from mentora.llm.client import LLMClient, make_client
 from mentora.memory.service import MemoryService
@@ -16,7 +14,7 @@ from mentora.policy.base import Proposer
 
 def build_orchestrator(
     settings: Settings,
-    session_factory: sessionmaker[Session],
+    session_factory: StoreFactory,
     *,
     client: LLMClient | None = None,
     memory: MemoryService | None = None,
@@ -27,11 +25,7 @@ def build_orchestrator(
     client = client or make_client(settings)
     with session_factory.begin() as db:
         course_id = upsert_course(db, course).id
-        n_passages = db.scalar(
-            select(func.count())
-            .select_from(m.CorpusPassage)
-            .where(m.CorpusPassage.course_id == course_id)
-        )
+        n_passages = db.count(m.CorpusPassage, {"course_id": course_id})
     rag = None
     if n_passages:
         from mentora.rag import build_pipeline

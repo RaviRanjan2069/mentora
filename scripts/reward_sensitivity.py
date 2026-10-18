@@ -15,10 +15,10 @@ from collections import defaultdict
 
 import numpy as np
 from scipy.stats import spearmanr
-from sqlalchemy.pool import StaticPool
 
 from mentora.config import get_settings
-from mentora.db import Base, make_engine, make_session_factory
+from mentora.db import connect
+from mentora.db.client import drop_mock
 from mentora.offline.simulator import LABEL, run_simulation
 from mentora.reward.reward import RewardTerms
 
@@ -49,14 +49,12 @@ def main() -> None:
     ap.add_argument("--turns", type=int, default=16)
     args = ap.parse_args()
     settings = get_settings()
-    engine = make_engine(
-        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
-    )
-    Base.metadata.create_all(engine)
+    url = "mongomock://reward_sensitivity"  # in memory: simulated data never persists
+    drop_mock(url)
     sink: list[tuple[str, int, RewardTerms]] = []
     run_simulation(
         settings,
-        make_session_factory(engine),
+        connect(url),
         n_sessions=args.sessions,
         turns=args.turns,
         seed=5,

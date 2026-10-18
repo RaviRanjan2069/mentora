@@ -21,11 +21,10 @@ from typing import Literal
 
 import numpy as np
 from pydantic import BaseModel, Field
-from sqlalchemy import select
-from sqlalchemy.orm import Session, sessionmaker
 
 from mentora.config.settings import Settings
 from mentora.course import load_course
+from mentora.db import ASC, Store, StoreFactory
 from mentora.db import models as m
 from mentora.learner_model.srl_tagger import trace_tags
 from mentora.llm.client import LLMClient
@@ -139,7 +138,7 @@ class ReflectiveMemory:
     def __init__(
         self,
         settings: Settings,
-        session_factory: sessionmaker[Session],
+        session_factory: StoreFactory,
         *,
         client: LLMClient | None = None,
         embedder: Embedder | None = None,
@@ -260,12 +259,8 @@ class ReflectiveMemory:
             purge_expired(db, self.settings.privacy.retention_days, now)
         return report
 
-    def _returns(self, db: Session, session_id: str, learner_id: str) -> tuple[float, float]:
-        rows = db.execute(
-            select(m.Transition.session_id, m.Transition.reward).where(
-                m.Transition.learner_id == learner_id
-            )
-        ).all()
+    def _returns(self, db: Store, session_id: str, learner_id: str) -> tuple[float, float]:
+        rows = db.values(m.Transition, ["session_id", "reward"], {"learner_id": learner_id})
         per: dict[str, float] = {}
         for sid, r in rows:
             per[sid] = per.get(sid, 0.0) + (r or 0.0)
@@ -289,17 +284,17 @@ class ReflectiveMemory:
         return heuristic_reflector(learner_msgs, n)
 
     def _near_duplicate(
-        self, db: Session, emb: list[float], learner_id: str, course_id: int, scope: str
+        self, db: Store, emb: list[float], learner_id: str, course_id: int, scope: str
     ) -> m.MemoryItem | None:
         q = np.asarray(emb)
-        stmt = select(m.MemoryItem).where(
-            m.MemoryItem.course_id == course_id,
-            m.MemoryItem.scope == scope,
-            m.MemoryItem.status.in_(("active", "pending_review")),
-        )
+        filter: dict[str, object] = {
+            "course_id": course_id,
+            "scope": scope,
+            "status": {"$in": ["active", "pending_review"]},
+        }
         if scope == "learner":
-            stmt = stmt.where(m.MemoryItem.learner_id == learner_id)
-        for row in db.scalars(stmt):
+            filter["learner_id"] = learner_id
+        for row in db.find(m.MemoryItem, filter, sort=[("id", ASC)]):
             if row.embedding is None:
                 continue
             v = np.asarray(row.embedding)
@@ -308,15 +303,13 @@ class ReflectiveMemory:
                 return row
         return None
 
-    def _prune(self, db: Session, learner_id: str, course_id: int) -> list[int]:
+    def _prune(self, db: Store, learner_id: str, course_id: int) -> list[int]:
         cfg = self.settings.memory
         pruned = []
-        for row in db.scalars(
-            select(m.MemoryItem).where(
-                m.MemoryItem.learner_id == learner_id,
-                m.MemoryItem.course_id == course_id,
-                m.MemoryItem.status == "active",
-            )
+        for row in db.find(
+            m.MemoryItem,
+            {"learner_id": learner_id, "course_id": course_id, "status": "active"},
+            sort=[("id", ASC)],
         ):
             if row.n_minus - row.n_plus > cfg.prune_delta or row.quality < cfg.q_min:
                 row.status = "pruned"

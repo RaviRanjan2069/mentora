@@ -6,9 +6,8 @@ from __future__ import annotations
 from datetime import datetime
 
 import numpy as np
-from sqlalchemy import or_, select
-from sqlalchemy.orm import Session
 
+from mentora.db import ASC, Store
 from mentora.db import models as m
 from mentora.memory.service import RecalledItem
 
@@ -19,7 +18,7 @@ def _cos(a: np.ndarray, b: np.ndarray) -> float:
 
 
 def recall(
-    db: Session,
+    db: Store,
     query_embedding: list[float],
     learner_id: str,
     course_id: int,
@@ -28,16 +27,15 @@ def recall(
     half_life_days: float,
     now: datetime,
 ) -> list[RecalledItem]:
-    rows = db.scalars(
-        select(m.MemoryItem).where(
-            m.MemoryItem.course_id == course_id,
-            m.MemoryItem.status == "active",
-            or_(
-                (m.MemoryItem.scope == "learner") & (m.MemoryItem.learner_id == learner_id),
-                m.MemoryItem.scope == "course",
-            ),
-        )
-    ).all()
+    rows = db.find(
+        m.MemoryItem,
+        {
+            "course_id": course_id,
+            "status": "active",
+            "$or": [{"scope": "learner", "learner_id": learner_id}, {"scope": "course"}],
+        },
+        sort=[("id", ASC)],
+    )
     q = np.asarray(query_embedding, dtype=float)
     scored = []
     for row in rows:

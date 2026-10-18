@@ -1,15 +1,14 @@
 """Learning Record Store interface. ``SqlLRSClient`` stores statements in the ``events``
-table; a real LRS (Ralph, Learning Locker) can be added behind the same protocol."""
+collection (the name predates MongoDB); a real LRS (Ralph, Learning Locker) can be added
+behind the same protocol."""
 
 from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Protocol
+from typing import Any, Protocol
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session, sessionmaker
-
+from mentora.db import ASC, Store, StoreFactory
 from mentora.db.models import Event
 from mentora.logging_xapi.statements import VERBS, Statement
 
@@ -35,7 +34,7 @@ class LRSClient(Protocol):
 
 
 class SqlLRSClient:
-    def __init__(self, session_factory: sessionmaker[Session]) -> None:
+    def __init__(self, session_factory: StoreFactory) -> None:
         self._session_factory = session_factory
 
     def store(self, statement: Statement) -> str:
@@ -48,7 +47,7 @@ class SqlLRSClient:
         return [st.id for st in statements]
 
     @staticmethod
-    def _add(db: Session, st: Statement) -> None:
+    def _add(db: Store, st: Statement) -> None:
         payload = st.to_json_dict()
         existing = db.get(Event, st.id)
         if existing is not None:
@@ -82,17 +81,21 @@ class SqlLRSClient:
         since: datetime | None = None,
         limit: int | None = None,
     ) -> list[Statement]:
-        stmt = select(Event.statement)
+        filter: dict[str, Any] = {}
         if learner_id is not None:
-            stmt = stmt.where(Event.learner_id == learner_id)
+            filter["learner_id"] = learner_id
         if session_id is not None:
-            stmt = stmt.where(Event.session_id == session_id)
+            filter["session_id"] = session_id
         if verb is not None:
-            stmt = stmt.where(Event.verb == VERBS.get(verb, verb))
+            filter["verb"] = VERBS.get(verb, verb)
         if since is not None:
-            stmt = stmt.where(Event.timestamp >= since)
-        stmt = stmt.order_by(Event.timestamp, Event.turn, Event.stored_at)
-        if limit is not None:
-            stmt = stmt.limit(limit)
+            filter["timestamp"] = {"$gte": since}
         with self._session_factory() as db:
-            return [Statement.model_validate(row) for row in db.scalars(stmt)]
+            rows = db.values(
+                Event,
+                ["statement"],
+                filter,
+                sort=[("timestamp", ASC), ("turn", ASC), ("seq", ASC)],
+                limit=limit or 0,
+            )
+        return [Statement.model_validate(row) for (row,) in rows]

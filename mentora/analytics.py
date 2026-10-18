@@ -13,11 +13,9 @@ from datetime import UTC, date, datetime, timedelta
 from statistics import mean
 from typing import Any
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
-
 from mentora.config.settings import Settings
 from mentora.course import item_concept_keys
+from mentora.db import ASC, DESC, Document, Store
 from mentora.db import models as m
 from mentora.learner_model.calibration import CalibrationTracker
 from mentora.learner_model.engagement import engagement
@@ -34,11 +32,18 @@ def _aware(t: datetime) -> datetime:
     return t if t.tzinfo else t.replace(tzinfo=UTC)
 
 
-def _events(db: Session, learner_id: str | None = None) -> list[Statement]:
-    stmt = select(m.Event.statement).order_by(m.Event.timestamp)
-    if learner_id is not None:
-        stmt = stmt.where(m.Event.learner_id == learner_id)
-    return [Statement.model_validate(raw) for raw in db.scalars(stmt)]
+def _events(db: Store, learner_id: str | None = None) -> list[Statement]:
+    rows = db.values(
+        m.Event,
+        ["statement"],
+        {} if learner_id is None else {"learner_id": learner_id},
+        sort=[("timestamp", ASC), ("seq", ASC)],
+    )
+    return [Statement.model_validate(raw) for (raw,) in rows]
+
+
+def _column(db: Store, model: type[Document], field: str, filter: dict[str, Any]) -> list[Any]:
+    return [v for (v,) in db.values(model, [field], filter)]
 
 
 def study_streak(days_with_sessions: set[date], today: date) -> int:
@@ -96,12 +101,12 @@ class SRLProgress:
 
 
 def srl_progress(
-    db: Session, learner_id: str, events: list[Statement], settings: Settings
+    db: Store, learner_id: str, events: list[Statement], settings: Settings
 ) -> SRLProgress:
-    sessions = list(db.scalars(select(m.Session.id).where(m.Session.learner_id == learner_id)))
+    sessions = _column(db, m.Session, "id", {"learner_id": learner_id})
     if not sessions:
         return SRLProgress(0.0, 0.0, 0.0, False)
-    goals = list(db.scalars(select(m.Goal).where(m.Goal.learner_id == learner_id)))
+    goals = db.find(m.Goal, {"learner_id": learner_id})
     goal_sessions = {g.session_id for g in goals if g.session_id}
     smart = [g.smart_score for g in goals if g.smart_score is not None]
     forethought = mean(
@@ -137,7 +142,7 @@ def srl_progress(
     return SRLProgress(forethought, performance, reflection, True)
 
 
-def _history(orch: Orchestrator, db: Session, learner_id: str) -> list[Interaction]:
+def _history(orch: Orchestrator, db: Store, learner_id: str) -> list[Interaction]:
     return orch.learner_history(db, learner_id, "", item_concept_keys(db, orch.course_id))
 
 
@@ -166,13 +171,11 @@ def _activity_line(st: Statement, items: dict[int, str]) -> tuple[str, str] | No
     return None
 
 
-def learner_home(db: Session, orch: Orchestrator, learner_id: str, now: datetime) -> dict[str, Any]:
+def learner_home(db: Store, orch: Orchestrator, learner_id: str, now: datetime) -> dict[str, Any]:
     s = orch.settings
     events = _events(db, learner_id)
     answers = [e for e in events if e.verb.id == VERBS["answered"]]
-    starts = list(
-        db.scalars(select(m.Session.started_at).where(m.Session.learner_id == learner_id))
-    )
+    starts = _column(db, m.Session, "started_at", {"learner_id": learner_id})
     week = now - timedelta(days=7)
     history = _history(orch, db, learner_id)
     k = orch.mastery_model.mastery(history, len(orch.course.concepts))
@@ -181,8 +184,7 @@ def learner_home(db: Session, orch: Orchestrator, learner_id: str, now: datetime
     srl = srl_progress(db, learner_id, events, s)
 
     items = {
-        i.id: i.text.split("\n")[0][:70]
-        for i in db.scalars(select(m.Item).where(m.Item.course_id == orch.course_id))
+        i.id: i.text.split("\n")[0][:70] for i in db.find(m.Item, {"course_id": orch.course_id})
     }
     activity = []
     for st in reversed(events):
@@ -243,7 +245,7 @@ def display_id(learner_id: str) -> str:
 
 
 def student_detail(
-    db: Session, orch: Orchestrator, learner_id: str, now: datetime
+    db: Store, orch: Orchestrator, learner_id: str, now: datetime
 ) -> dict[str, Any] | None:
     """Everything the teacher console shows for one learner: the learner's own home-page
     figures plus mastery per concept, recent goals and session count."""
@@ -253,12 +255,8 @@ def student_detail(
     history = _history(orch, db, learner_id)
     k = orch.mastery_model.mastery(history, len(orch.course.concepts))
     practised = {x.concept for x in history}
-    goals = db.scalars(
-        select(m.Goal).where(m.Goal.learner_id == learner_id).order_by(m.Goal.id.desc()).limit(8)
-    )
-    sessions = db.scalar(
-        select(func.count()).select_from(m.Session).where(m.Session.learner_id == learner_id)
-    )
+    goals = db.find(m.Goal, {"learner_id": learner_id}, sort=[("id", DESC)], limit=8)
+    sessions = db.count(m.Session, {"learner_id": learner_id})
     return {
         **data,
         "id": learner_id,
@@ -286,9 +284,7 @@ def student_detail(
     }
 
 
-def next_steps(
-    db: Session, orch: Orchestrator, k: Any, practised: set[int]
-) -> list[dict[str, Any]]:
+def next_steps(db: Store, orch: Orchestrator, k: Any, practised: set[int]) -> list[dict[str, Any]]:
     """Up to three 'frontier' concepts: not yet mastered, prerequisites mastered (or none),
     earliest course week first. Each gets a practice item if one exists, else reading."""
     s = orch.settings
@@ -298,9 +294,7 @@ def next_steps(
         return bool(k[index[key]] >= s.goals.attain_mastery and index[key] in practised)
 
     concept_items: dict[str, list[int]] = defaultdict(list)
-    passages = list(
-        db.scalars(select(m.CorpusPassage).where(m.CorpusPassage.course_id == orch.course_id))
-    )
+    passages = db.find(m.CorpusPassage, {"course_id": orch.course_id})
     for item_id, keys in item_concept_keys(db, orch.course_id).items():
         for key in keys:
             concept_items[key].append(item_id)
@@ -338,23 +332,18 @@ def next_steps(
 # --- teacher -------------------------------------------------------------------------------
 
 
-def students_summary(db: Session, orch: Orchestrator, now: datetime) -> list[dict[str, Any]]:
+def students_summary(db: Store, orch: Orchestrator, now: datetime) -> list[dict[str, Any]]:
     """One row per learner with at least one session.
 
     At risk: dropout risk >= 0.5, or accuracy < 40% over at least 5 answers, or an open
     distress escalation."""
     s = orch.settings
-    learners = list(
-        db.scalars(
-            select(m.Learner.id)
-            .join(m.Session, m.Session.learner_id == m.Learner.id)
-            .group_by(m.Learner.id)
-        )
-    )
+    # Learners with at least one session (sessions cascade with their learner).
+    learners = sorted(db.distinct(m.Session, "learner_id"))
     out = []
     for lid in learners:
-        starts = list(db.scalars(select(m.Session.started_at).where(m.Session.learner_id == lid)))
-        times = list(db.scalars(select(m.Event.timestamp).where(m.Event.learner_id == lid)))
+        starts = _column(db, m.Session, "started_at", {"learner_id": lid})
+        times = _column(db, m.Event, "timestamp", {"learner_id": lid})
         eng = engagement(
             [_aware(t) for t in starts], [_aware(t) for t in times], [], now, s.learner_model
         )
@@ -366,26 +355,10 @@ def students_summary(db: Session, orch: Orchestrator, now: datetime) -> list[dic
         )
         hist = _history(orch, db, lid)
         k = orch.mastery_model.mastery(hist, len(orch.course.concepts))
-        open_distress = (
-            db.scalar(
-                select(func.count())
-                .select_from(m.Escalation)
-                .where(
-                    m.Escalation.learner_id == lid,
-                    m.Escalation.status == "open",
-                    m.Escalation.reason == "distress",
-                )
-            )
-            or 0
+        open_distress = db.count(
+            m.Escalation, {"learner_id": lid, "status": "open", "reason": "distress"}
         )
-        open_any = (
-            db.scalar(
-                select(func.count())
-                .select_from(m.Escalation)
-                .where(m.Escalation.learner_id == lid, m.Escalation.status == "open")
-            )
-            or 0
-        )
+        open_any = db.count(m.Escalation, {"learner_id": lid, "status": "open"})
         at_risk = (
             eng.dropout_risk >= 0.5
             or (acc is not None and len(answers) >= 5 and acc < 0.4)
@@ -415,7 +388,7 @@ def students_summary(db: Session, orch: Orchestrator, now: datetime) -> list[dic
     return out
 
 
-def class_overview(db: Session, orch: Orchestrator, now: datetime) -> dict[str, Any]:
+def class_overview(db: Store, orch: Orchestrator, now: datetime) -> dict[str, Any]:
     """Stat cards, weekly progress, topic accuracy and recent activity for the course.
 
     * average score: share of correct answers over all logged answers
@@ -432,7 +405,7 @@ def class_overview(db: Session, orch: Orchestrator, now: datetime) -> dict[str, 
         wk = orch.course.week_of(_aware(a.timestamp).date())
         if wk is not None:
             weekly[wk]["score"].append(1.0 if a.result and a.result.success else 0.0)
-    for g in db.scalars(select(m.Goal)):
+    for g in db.find(m.Goal):
         wk = orch.course.week_of(_aware(g.created_at).date())
         if wk is not None:
             weekly[wk]["goal"].append(1.0 if g.status == "attained" else 0.0)
@@ -466,8 +439,7 @@ def class_overview(db: Session, orch: Orchestrator, now: datetime) -> dict[str, 
     )
 
     items = {
-        i.id: i.text.split("\n")[0][:60]
-        for i in db.scalars(select(m.Item).where(m.Item.course_id == orch.course_id))
+        i.id: i.text.split("\n")[0][:60] for i in db.find(m.Item, {"course_id": orch.course_id})
     }
     activity = []
     for st in reversed(events):

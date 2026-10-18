@@ -32,13 +32,21 @@ INDEXES: dict[str, list[IndexModel]] = {
         IndexModel([("course_id", ASCENDING)], name="ix_sessions_course"),
     ],
     "events": [
-        IndexModel([("learner_id", ASCENDING), ("timestamp", ASCENDING)], name="ix_events_learner_ts"),
-        IndexModel([("session_id", ASCENDING), ("timestamp", ASCENDING)], name="ix_events_session_ts"),
+        IndexModel(
+            [("learner_id", ASCENDING), ("timestamp", ASCENDING), ("seq", ASCENDING)],
+            name="ix_events_learner_ts",
+        ),
+        IndexModel(
+            [("session_id", ASCENDING), ("timestamp", ASCENDING), ("seq", ASCENDING)],
+            name="ix_events_session_ts",
+        ),
     ],
     "goals": [IndexModel([("learner_id", ASCENDING)], name="ix_goals_learner")],
     "plans": [IndexModel([("goal_id", ASCENDING)], name="ix_plans_goal")],
     "memory_items": [
-        IndexModel([("learner_id", ASCENDING), ("status", ASCENDING)], name="ix_memory_learner_status"),
+        IndexModel(
+            [("learner_id", ASCENDING), ("status", ASCENDING)], name="ix_memory_learner_status"
+        ),
         IndexModel([("course_id", ASCENDING), ("scope", ASCENDING)], name="ix_memory_course_scope"),
     ],
     "transitions": [
@@ -67,8 +75,9 @@ def make_database(url: str) -> Database[dict[str, Any]]:
         import mongomock
 
         name = parts.netloc or name
-        client = _MOCK_CLIENTS.setdefault(name, mongomock.MongoClient(tz_aware=True))
-        return client[name]  # type: ignore[no-any-return]
+        mock = _MOCK_CLIENTS.setdefault(name, mongomock.MongoClient(tz_aware=True))
+        database: Database[dict[str, Any]] = mock[name]
+        return database
     if parts.scheme not in ("mongodb", "mongodb+srv"):
         raise ValueError(f"MENTORA_DATABASE_URL must be a mongodb:// URL, not {parts.scheme}://")
     client: MongoClient[dict[str, Any]] = MongoClient(

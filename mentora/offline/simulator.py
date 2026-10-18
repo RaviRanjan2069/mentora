@@ -22,11 +22,10 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from sqlalchemy import select
-from sqlalchemy.orm import Session, sessionmaker
 
 from mentora.config.settings import Settings
 from mentora.course import CourseSpec, load_course, load_items, upsert_course, upsert_items
+from mentora.db import ASC, StoreFactory
 from mentora.db import models as m
 from mentora.llm.backends.offline import OfflineLLM
 from mentora.llm.client import LLMClient
@@ -90,7 +89,7 @@ def simulation_settings(settings: Settings, policy_mode: str) -> Settings:
     )
 
 
-def seed_course(factory: sessionmaker[Session], course: CourseSpec) -> int:
+def seed_course(factory: StoreFactory, course: CourseSpec) -> int:
     with factory.begin() as db:
         course_id = upsert_course(db, course).id
         upsert_items(db, course_id, load_items(ROOT / "data" / "sample" / "items.yaml"))
@@ -99,7 +98,7 @@ def seed_course(factory: sessionmaker[Session], course: CourseSpec) -> int:
     return course_id
 
 
-def count_violations(factory: sessionmaker[Session]) -> int:
+def count_violations(factory: StoreFactory) -> int:
     """Independent re-check of the logs: chosen action inside the logged F(s), and no
     Directive / worked example where the integrity constraint was active."""
     bad = 0
@@ -117,7 +116,7 @@ def count_violations(factory: sessionmaker[Session]) -> int:
 
 def run_simulation(
     settings: Settings,
-    factory: sessionmaker[Session],
+    factory: StoreFactory,
     *,
     n_sessions: int,
     turns: int,
@@ -151,20 +150,9 @@ def run_simulation(
     )
     orch.reward_terms = reward_terms
     with factory() as db:
-        items = list(
-            db.scalars(select(m.Item).where(m.Item.course_id == course_id).order_by(m.Item.id))
-        )
-        item_concepts = {
-            i.id: [
-                k
-                for k in db.scalars(
-                    select(m.Concept.key)
-                    .join(m.item_concepts, m.item_concepts.c.concept_id == m.Concept.id)
-                    .where(m.item_concepts.c.item_id == i.id)
-                )
-            ]
-            for i in items
-        }
+        items = db.find(m.Item, {"course_id": course_id}, sort=[("id", ASC)])
+        keys = dict(db.values(m.Concept, ["id", "key"], {"course_id": course_id}))
+        item_concepts = {i.id: [keys[c] for c in sorted(i.concept_ids) if c in keys] for i in items}
 
     n_learners = max(4, n_sessions // 3)
     learners = []
@@ -267,7 +255,7 @@ def run_simulation(
     return stats
 
 
-def fit_response_models(factory: sessionmaker[Session]) -> tuple[ResponseModel, dict[str, float]]:
+def fit_response_models(factory: StoreFactory) -> tuple[ResponseModel, dict[str, float]]:
     """Refit P(goal | asked) and P(reflect | asked) from real logs with logistic regression on
     the previous tutor move; returns the model and the observed rates (for a calibration
     table comparing simulated with real behaviour)."""

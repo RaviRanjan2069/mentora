@@ -45,6 +45,9 @@ class Document:
     __refs__: ClassVar[Mapping[str, Ref]] = {}
     # field -> factory applied whenever an existing document is updated (SQL onupdate)
     __onupdate__: ClassVar[Mapping[str, Callable[[], Any]]] = {}
+    # Integer field filled on insert from a per-collection counter: a stable insertion
+    # order for sorting ties (MongoDB does not keep ties in insertion order).
+    __sequence__: ClassVar[str | None] = None
 
     def validate(self) -> None:
         """Raise IntegrityError when the document breaks a constraint."""

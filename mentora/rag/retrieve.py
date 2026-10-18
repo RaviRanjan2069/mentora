@@ -7,9 +7,8 @@ from dataclasses import dataclass
 
 import numpy as np
 from rank_bm25 import BM25Okapi
-from sqlalchemy import select
-from sqlalchemy.orm import Session, sessionmaker
 
+from mentora.db import ASC, StoreFactory
 from mentora.db import models as m
 from mentora.rag.embeddings import Embedder
 from mentora.rag.text import words
@@ -70,7 +69,7 @@ class HybridRetriever:
     @classmethod
     def from_db(
         cls,
-        session_factory: sessionmaker[Session],
+        session_factory: StoreFactory,
         course_id: int,
         embedder: Embedder,
         *,
@@ -78,11 +77,7 @@ class HybridRetriever:
         top_k: int,
     ) -> HybridRetriever:
         with session_factory() as db:
-            rows = db.scalars(
-                select(m.CorpusPassage)
-                .where(m.CorpusPassage.course_id == course_id)
-                .order_by(m.CorpusPassage.id)
-            ).all()
+            rows = db.find(m.CorpusPassage, {"course_id": course_id}, sort=[("id", ASC)])
         passages = [Passage(r.id, r.text, r.section, r.week, tuple(r.concept_keys)) for r in rows]
         missing = [i for i, r in enumerate(rows) if r.embedding is None]
         vectors = [r.embedding for r in rows]

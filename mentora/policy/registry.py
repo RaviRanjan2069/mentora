@@ -9,9 +9,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
+from mentora.db import Store
 from mentora.db import models as m
 
 RULE_VERSION = "rule-v1"
@@ -21,7 +19,7 @@ class RegistryError(Exception):
     pass
 
 
-def ensure_rule_policy(db: Session) -> m.Policy:
+def ensure_rule_policy(db: Store) -> m.Policy:
     row = db.get(m.Policy, RULE_VERSION)
     if row is None:
         row = m.Policy(
@@ -38,13 +36,13 @@ def ensure_rule_policy(db: Session) -> m.Policy:
     return row
 
 
-def active_policy(db: Session) -> m.Policy:
-    row = db.scalars(select(m.Policy).where(m.Policy.status == "active")).first()
+def active_policy(db: Store) -> m.Policy:
+    row = db.find_one(m.Policy, {"status": "active"})
     return row if row is not None else ensure_rule_policy(db)
 
 
 def register_candidate(
-    db: Session,
+    db: Store,
     version: str,
     type_: str,
     config: dict[str, Any],
@@ -64,7 +62,7 @@ def register_candidate(
     return row
 
 
-def decide(db: Session, version: str, *, approve: bool, teacher: str, note: str) -> m.Policy:
+def decide(db: Store, version: str, *, approve: bool, teacher: str, note: str) -> m.Policy:
     """Teacher decision on a candidate. Approval activates it and retires the old policy."""
     row = db.get(m.Policy, version)
     if row is None:
@@ -78,7 +76,7 @@ def decide(db: Session, version: str, *, approve: bool, teacher: str, note: str)
     if not approve:
         row.status = "rejected"
         return row
-    for old in db.scalars(select(m.Policy).where(m.Policy.status == "active")):
+    for old in db.find(m.Policy, {"status": "active"}):
         old.status = "retired"
     row.status = "active"
     db.flush()

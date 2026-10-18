@@ -9,8 +9,8 @@ from dataclasses import dataclass
 from typing import Annotated, Any, Literal
 
 from fastapi import Depends, HTTPException, Request
-from sqlalchemy.orm import Session, sessionmaker
 
+from mentora.db import Store, StoreFactory
 from mentora.orchestrator.turn import Orchestrator
 
 Role = Literal["learner", "teacher"]
@@ -24,12 +24,12 @@ class User:
     via: Literal["lti", "dev"]
 
 
-def session_factory(request: Request) -> sessionmaker[Session]:
-    factory: sessionmaker[Session] = request.app.state.session_factory
+def session_factory(request: Request) -> StoreFactory:
+    factory: StoreFactory = request.app.state.session_factory
     return factory
 
 
-def db_session(request: Request) -> Iterator[Session]:
+def db_session(request: Request) -> Iterator[Store]:
     with session_factory(request)() as db:
         yield db
 

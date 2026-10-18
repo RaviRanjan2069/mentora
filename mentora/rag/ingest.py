@@ -9,10 +9,9 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import yaml
-from sqlalchemy import delete
-from sqlalchemy.orm import Session, sessionmaker
 
 from mentora.course import ConceptSpec, CourseSpec
+from mentora.db import StoreFactory
 from mentora.db import models as m
 from mentora.rag.embeddings import Embedder
 from mentora.rag.text import count_tokens, slug, split_sentences
@@ -278,18 +277,21 @@ def embed_passages(passages: Sequence[PassageDraft], embedder: Embedder) -> list
 
 
 def store_passages(
-    session_factory: sessionmaker[Session], course_id: int, passages: Sequence[PassageDraft]
+    session_factory: StoreFactory, course_id: int, passages: Sequence[PassageDraft]
 ) -> int:
     """Replace this course's passages from the same source files, then insert."""
     sources = {p.source_file.split("#", 1)[0] for p in passages}
     with session_factory.begin() as db:
         for src in sources:
-            db.execute(
-                delete(m.CorpusPassage).where(
-                    m.CorpusPassage.course_id == course_id,
-                    (m.CorpusPassage.source_file == src)
-                    | m.CorpusPassage.source_file.startswith(f"{src}#"),
-                )
+            db.delete_many(
+                m.CorpusPassage,
+                {
+                    "course_id": course_id,
+                    "$or": [
+                        {"source_file": src},
+                        {"source_file": {"$regex": f"^{re.escape(src)}#"}},
+                    ],
+                },
             )
         db.add_all(
             m.CorpusPassage(

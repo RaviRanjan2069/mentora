@@ -1,7 +1,7 @@
 """Run the offline loop: dataset -> candidate -> OPE -> fairness -> simulation check -> gate.
 
     python scripts/train_policy.py                          # logged sessions in the main DB
-    python scripts/train_policy.py --db sqlite:///./simulated.db --label simulation
+    python scripts/train_policy.py --db mongodb://localhost:27017/mentora_sim --label simulation
     python scripts/train_policy.py --method tabular
 
 The result is registered in the policy registry ('candidate' awaiting teacher approval,
@@ -14,7 +14,7 @@ import argparse
 from pathlib import Path
 
 from mentora.config import get_settings
-from mentora.db import make_engine, make_session_factory
+from mentora.db import connect
 from mentora.offline.train import run_offline_pipeline
 
 
@@ -28,7 +28,7 @@ def main() -> None:
     args = ap.parse_args()
     result = run_offline_pipeline(
         settings,
-        make_session_factory(make_engine(args.db)),
+        connect(args.db),
         method=args.method,
         data_label=args.label,
     )

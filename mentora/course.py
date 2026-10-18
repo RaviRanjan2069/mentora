@@ -8,9 +8,8 @@ from typing import Literal, Self
 
 import yaml
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
+from mentora.db import Store
 from mentora.db import models as m
 
 
@@ -82,17 +81,15 @@ def load_course(path: Path) -> CourseSpec:
     )
 
 
-def upsert_course(db: Session, spec: CourseSpec) -> m.Course:
+def upsert_course(db: Store, spec: CourseSpec) -> m.Course:
     """Create or update the course, its concepts and prerequisite edges."""
-    course = db.scalars(select(m.Course).where(m.Course.code == spec.code)).one_or_none()
+    course = db.find_one(m.Course, {"code": spec.code})
     if course is None:
         course = m.Course(code=spec.code, title=spec.title)
         db.add(course)
         db.flush()
     course.title = spec.title
-    existing = {
-        c.key: c for c in db.scalars(select(m.Concept).where(m.Concept.course_id == course.id))
-    }
+    existing = {c.key: c for c in db.find(m.Concept, {"course_id": course.id})}
     for c in spec.concepts:
         row = existing.get(c.key)
         if row is None:
@@ -101,17 +98,9 @@ def upsert_course(db: Session, spec: CourseSpec) -> m.Course:
             existing[c.key] = row
         row.name = c.name
     db.flush()
-    ids = [existing[c.key].id for c in spec.concepts]
-    db.execute(
-        m.concept_prerequisites.delete().where(m.concept_prerequisites.c.concept_id.in_(ids))
-    )
-    edges = [
-        {"concept_id": existing[c.key].id, "prerequisite_id": existing[p].id}
-        for c in spec.concepts
-        for p in c.prereqs
-    ]
-    if edges:
-        db.execute(m.concept_prerequisites.insert(), edges)
+    for c in spec.concepts:
+        existing[c.key].prerequisite_ids = [existing[p].id for p in c.prereqs]
+    db.flush()
     return course
 
 
@@ -129,17 +118,13 @@ def load_items(path: Path) -> list[ItemSpec]:
     return [ItemSpec.model_validate(i) for i in raw.get("items", [])]
 
 
-def upsert_items(db: Session, course_id: int, items: list[ItemSpec]) -> dict[str, int]:
+def upsert_items(db: Store, course_id: int, items: list[ItemSpec]) -> dict[str, int]:
     """Create or update items and their concept tags; returns external_id -> item id."""
-    concept_ids = {
-        c.key: c.id for c in db.scalars(select(m.Concept).where(m.Concept.course_id == course_id))
-    }
+    concept_ids = {c.key: c.id for c in db.find(m.Concept, {"course_id": course_id})}
     existing = {
-        i.external_id: i
-        for i in db.scalars(select(m.Item).where(m.Item.course_id == course_id))
-        if i.external_id
+        i.external_id: i for i in db.find(m.Item, {"course_id": course_id}) if i.external_id
     }
-    out: dict[str, int] = {}
+    rows: dict[str, m.Item] = {}
     for spec in items:
         unknown = [k for k in spec.concepts if k not in concept_ids]
         if unknown:
@@ -148,26 +133,21 @@ def upsert_items(db: Session, course_id: int, items: list[ItemSpec]) -> dict[str
         if row is None:
             row = m.Item(course_id=course_id, external_id=spec.external_id, text=spec.text)
             db.add(row)
+            existing[spec.external_id] = row
         row.text, row.answer_key = spec.text, spec.answer_key
         row.item_type, row.graded = spec.item_type, spec.graded
-        db.flush()
-        db.execute(m.item_concepts.delete().where(m.item_concepts.c.item_id == row.id))
-        db.execute(
-            m.item_concepts.insert(),
-            [{"item_id": row.id, "concept_id": concept_ids[k]} for k in spec.concepts],
-        )
-        out[spec.external_id] = row.id
-    return out
+        row.concept_ids = sorted(concept_ids[k] for k in spec.concepts)
+        rows[spec.external_id] = row
+    db.flush()  # once: ids for new items, updates for changed ones
+    return {ext: row.id for ext, row in rows.items()}
 
 
-def item_concept_keys(db: Session, course_id: int) -> dict[int, list[str]]:
-    rows = db.execute(
-        select(m.item_concepts.c.item_id, m.Concept.key)
-        .join(m.Concept, m.Concept.id == m.item_concepts.c.concept_id)
-        .where(m.Concept.course_id == course_id)
-        .order_by(m.item_concepts.c.item_id, m.Concept.id)
-    ).all()
+def item_concept_keys(db: Store, course_id: int) -> dict[int, list[str]]:
+    """item id -> its concept keys, in concept id order."""
+    keys = dict(db.values(m.Concept, ["id", "key"], {"course_id": course_id}))
     out: dict[int, list[str]] = {}
-    for item_id, key in rows:
-        out.setdefault(item_id, []).append(key)
+    for item_id, ids in db.values(m.Item, ["id", "concept_ids"], {"course_id": course_id}):
+        tagged = [keys[c] for c in sorted(ids or []) if c in keys]
+        if tagged:
+            out[item_id] = tagged
     return out

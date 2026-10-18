@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from sqlalchemy.orm import Session, sessionmaker
-
 from mentora.config import Settings
+from mentora.db import StoreFactory
 from mentora.rag.embeddings import Embedder, make_embedder
 from mentora.rag.rerank import RagPipeline, make_reranker
 from mentora.rag.retrieve import HybridRetriever
@@ -12,7 +11,7 @@ from mentora.rag.retrieve import HybridRetriever
 
 def build_pipeline(
     settings: Settings,
-    session_factory: sessionmaker[Session],
+    session_factory: StoreFactory,
     course_id: int,
     embedder: Embedder | None = None,
 ) -> RagPipeline:

@@ -12,9 +12,8 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 
 import numpy as np
-from sqlalchemy import select
-from sqlalchemy.orm import Session, sessionmaker
 
+from mentora.db import ASC, StoreFactory
 from mentora.db import models as m
 from mentora.logging_xapi.statements import VERBS, Statement
 from mentora.policy.catalogue import Catalogue
@@ -91,22 +90,23 @@ class Dataset:
         }
 
 
-def build_dataset(session_factory: sessionmaker[Session], catalogue: Catalogue) -> Dataset:
+def build_dataset(session_factory: StoreFactory, catalogue: Catalogue) -> Dataset:
     action_ids = [a.id for a in catalogue]
     index = {aid: i for i, aid in enumerate(action_ids)}
     n = len(action_ids)
     with session_factory() as db:
-        rows = db.scalars(
-            select(m.Transition)
-            .where(m.Transition.reward.is_not(None), m.Transition.next_state.is_not(None))
-            .order_by(m.Transition.session_id, m.Transition.t)
-        ).all()
-        stmts = db.execute(
-            select(m.Event.session_id, m.Event.turn, m.Event.statement).where(
-                m.Event.verb == VERBS["received"]
-            )
-        ).all()
-        learners = db.scalars(select(m.Learner)).all()
+        rows = db.find(
+            m.Transition,
+            {"reward": {"$ne": None}, "next_state": {"$ne": None}},
+            sort=[("session_id", ASC), ("t", ASC)],
+        )
+        stmts = db.values(
+            m.Event,
+            ["session_id", "turn", "statement"],
+            {"verb": VERBS["received"]},
+            sort=[("timestamp", ASC), ("seq", ASC)],
+        )
+        learners = db.find(m.Learner, sort=[("id", ASC)])
     tutor = {}
     for sid, turn, raw in stmts:
         ext = Statement.model_validate(raw).tutor_action

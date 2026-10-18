@@ -15,11 +15,10 @@ import json
 from pathlib import Path
 
 import numpy as np
-from sqlalchemy import select
 
 from mentora.config import get_settings
 from mentora.course import load_course
-from mentora.db import make_engine, make_session_factory
+from mentora.db import ASC, connect
 from mentora.db import models as m
 from mentora.learner_model.hmm_tactics import fit_tactic_hmm
 from mentora.learner_model.kt.data import load_assistments, synthetic_sequences
@@ -50,13 +49,13 @@ def synthetic_tactics(n: int, length: int, seed: int) -> list[list[int]]:
 
 
 def tactics_from_db() -> list[list[int]]:
-    factory = make_session_factory(make_engine())
+    factory = connect(get_settings().database_url)
     with factory() as db:
-        rows = db.execute(
-            select(m.Event.session_id, m.Event.statement).order_by(
-                m.Event.session_id, m.Event.timestamp
-            )
-        ).all()
+        rows = db.values(
+            m.Event,
+            ["session_id", "statement"],
+            sort=[("session_id", ASC), ("timestamp", ASC), ("seq", ASC)],
+        )
     by_session: dict[str | None, list[int]] = {}
     for sid, raw in rows:
         tactic = code_statement(Statement.model_validate(raw))

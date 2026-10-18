@@ -10,7 +10,7 @@ from pathlib import Path
 
 from mentora.config import get_settings
 from mentora.course import load_course, upsert_course
-from mentora.db import Base, make_engine, make_session_factory
+from mentora.db import connect
 from mentora.rag.embeddings import make_embedder
 from mentora.rag.ingest import (
     PassageDraft,
@@ -27,15 +27,9 @@ def main() -> None:
     ap.add_argument("--corpus", type=Path, default=Path("data/sample/corpus"))
     ap.add_argument("--concepts", type=Path, default=settings.app.concepts_file)
     ap.add_argument("--db-url", default=settings.database_url)
-    ap.add_argument(
-        "--create-tables", action="store_true", help="SQLite dev only; Postgres uses alembic"
-    )
     args = ap.parse_args()
 
-    engine = make_engine(args.db_url)
-    if args.create_tables:
-        Base.metadata.create_all(engine)
-    factory = make_session_factory(engine)
+    factory = connect(args.db_url)
 
     course = load_course(args.concepts)
     with factory.begin() as db:

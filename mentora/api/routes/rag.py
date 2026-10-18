@@ -4,7 +4,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
-from sqlalchemy import select
 
 from mentora.config.settings import Settings
 from mentora.course import load_course
@@ -38,12 +37,10 @@ def _pipeline(request: Request) -> tuple[str, RagPipeline]:
     factory = request.app.state.session_factory
     course = load_course(settings.app.concepts_file)
     with factory() as db:
-        course_id = db.scalars(select(m.Course.id).where(m.Course.code == course.code)).first()
+        row = db.find_one(m.Course, {"code": course.code})
+        course_id = row.id if row is not None else None
         has_passages = (
-            course_id is not None
-            and db.scalars(
-                select(m.CorpusPassage.id).where(m.CorpusPassage.course_id == course_id).limit(1)
-            ).first()
+            course_id is not None and db.count(m.CorpusPassage, {"course_id": course_id}) > 0
         )
     if course_id is None or not has_passages:
         raise HTTPException(503, "No course material ingested yet. Run scripts/seed_demo.py.")

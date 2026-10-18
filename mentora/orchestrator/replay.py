@@ -7,25 +7,22 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from sqlalchemy import select
-from sqlalchemy.orm import Session, sessionmaker
 
+from mentora.db import Store, StoreFactory
 from mentora.db import models as m
 from mentora.orchestrator.turn import Orchestrator, TurnResult
 
 
-def _item_id(db: Session, course_id: int, external_id: str) -> int:
-    item_id = db.scalars(
-        select(m.Item.id).where(m.Item.course_id == course_id, m.Item.external_id == external_id)
-    ).first()
-    if item_id is None:
+def _item_id(db: Store, course_id: int, external_id: str) -> int:
+    item = db.find_one(m.Item, {"course_id": course_id, "external_id": external_id})
+    if item is None:
         raise KeyError(f"unknown item {external_id}")
-    return item_id
+    return item.id
 
 
 def replay(
     orch: Orchestrator,
-    factory: sessionmaker[Session],
+    factory: StoreFactory,
     script: list[dict[str, Any]] | Path,
     learner_id: str,
 ) -> tuple[str, list[tuple[str, TurnResult]]]:

@@ -10,10 +10,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from sqlalchemy import select
-
 from mentora.config import get_settings
-from mentora.db import make_engine, make_session_factory
+from mentora.db import connect
 from mentora.db import models as m
 from mentora.orchestrator.replay import replay
 from mentora.orchestrator.session import build_orchestrator
@@ -26,14 +24,11 @@ def main() -> None:
     args = ap.parse_args()
 
     settings = get_settings()
-    factory = make_session_factory(make_engine())
+    factory = connect(settings.database_url)
     orch = build_orchestrator(settings, factory)
     session_id, log = replay(orch, factory, args.script, args.learner)
     with factory() as db:
-        rows = {
-            t.t: t
-            for t in db.scalars(select(m.Transition).where(m.Transition.session_id == session_id))
-        }
+        rows = {t.t: t for t in db.find(m.Transition, {"session_id": session_id})}
     print(f"session {session_id}  policy {orch.policy.version}\n")
     for trigger, r in log:
         tr = rows[r.turn]

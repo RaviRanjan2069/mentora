@@ -7,6 +7,7 @@ lists: ``Concept.prerequisite_ids`` and ``Item.concept_ids``.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, ClassVar
@@ -53,7 +54,7 @@ class Course(Document):
 @dataclass(kw_only=True)
 class Concept(Document):
     __collection__ = "concepts"  # unique (course_id, key)
-    __refs__ = {"course_id": COURSE}
+    __refs__: ClassVar[Mapping[str, Ref]] = {"course_id": COURSE}
 
     id: int = 0
     course_id: int
@@ -69,7 +70,7 @@ class Concept(Document):
 @dataclass(kw_only=True)
 class Item(Document):
     __collection__ = "items"
-    __refs__ = {"course_id": COURSE}
+    __refs__: ClassVar[Mapping[str, Ref]] = {"course_id": COURSE}
 
     id: int = 0
     course_id: int
@@ -85,7 +86,7 @@ class Item(Document):
 class Session(Document):
     __collection__ = "sessions"
     __id_kind__: ClassVar[IdKind] = "uuid"
-    __refs__ = {"learner_id": LEARNER, "course_id": COURSE}
+    __refs__: ClassVar[Mapping[str, Ref]] = {"learner_id": LEARNER, "course_id": COURSE}
 
     id: str = field(default_factory=_uuid)
     learner_id: str
@@ -106,9 +107,11 @@ class Event(Document):
 
     __collection__ = "events"
     __id_kind__: ClassVar[IdKind] = "given"
-    __refs__ = {"learner_id": LEARNER, "session_id": SESSION}
+    __refs__: ClassVar[Mapping[str, Ref]] = {"learner_id": LEARNER, "session_id": SESSION}
+    __sequence__ = "seq"
 
     id: str  # xAPI statement id
+    seq: int = 0  # insertion order (tie-break when sorting by timestamp)
     learner_id: str
     session_id: str | None = None
     turn: int | None = None
@@ -127,7 +130,11 @@ class Event(Document):
 @dataclass(kw_only=True)
 class Goal(Document):
     __collection__ = "goals"
-    __refs__ = {"learner_id": LEARNER, "course_id": COURSE, "session_id": SESSION_OR_NULL}
+    __refs__: ClassVar[Mapping[str, Ref]] = {
+        "learner_id": LEARNER,
+        "course_id": COURSE,
+        "session_id": SESSION_OR_NULL,
+    }
 
     id: int = 0
     learner_id: str
@@ -147,8 +154,8 @@ class Goal(Document):
 @dataclass(kw_only=True)
 class Plan(Document):
     __collection__ = "plans"
-    __refs__ = {"goal_id": Ref("goals", "cascade")}
-    __onupdate__ = {"updated_at": now}
+    __refs__: ClassVar[Mapping[str, Ref]] = {"goal_id": Ref("goals", "cascade")}
+    __onupdate__: ClassVar[Mapping[str, Callable[[], Any]]] = {"updated_at": now}
 
     id: int = 0
     goal_id: int
@@ -161,7 +168,7 @@ class Plan(Document):
 @dataclass(kw_only=True)
 class MemoryItem(Document):
     __collection__ = "memory_items"
-    __refs__ = {
+    __refs__: ClassVar[Mapping[str, Ref]] = {
         "learner_id": LEARNER,
         "course_id": COURSE,
         "source_session_id": SESSION_OR_NULL,
@@ -184,7 +191,9 @@ class MemoryItem(Document):
     def validate(self) -> None:
         one_of(self.scope, ("learner", "course"), "scope")
         one_of(self.status, ("active", "pending_review", "pruned"), "status")
-        check(self.scope == "course" or self.learner_id is not None, "learner memory needs a learner")
+        check(
+            self.scope == "course" or self.learner_id is not None, "learner memory needs a learner"
+        )
         self.embedding = embedding_ok(self.embedding, EMBEDDING_DIM, "embedding")
 
 
@@ -193,7 +202,7 @@ class Transition(Document):
     """(s, a, mu, r, s') for offline RL. reward/next_state are filled one step later."""
 
     __collection__ = "transitions"  # unique (session_id, t)
-    __refs__ = {"learner_id": LEARNER, "session_id": SESSION}
+    __refs__: ClassVar[Mapping[str, Ref]] = {"learner_id": LEARNER, "session_id": SESSION}
 
     id: int = 0
     learner_id: str
@@ -234,7 +243,7 @@ class Policy(Document):
 @dataclass(kw_only=True)
 class Escalation(Document):
     __collection__ = "escalations"
-    __refs__ = {
+    __refs__: ClassVar[Mapping[str, Ref]] = {
         "learner_id": LEARNER,
         "session_id": SESSION_OR_NULL,
         "event_id": Ref("events", "set_null"),
@@ -259,7 +268,7 @@ class Escalation(Document):
 @dataclass(kw_only=True)
 class TeacherRule(Document):
     __collection__ = "teacher_rules"
-    __refs__ = {"course_id": COURSE}
+    __refs__: ClassVar[Mapping[str, Ref]] = {"course_id": COURSE}
 
     id: int = 0
     course_id: int
@@ -275,7 +284,7 @@ class TeacherRule(Document):
 class CorpusPassage(Document):
     __collection__ = "corpus_passages"
     __id_kind__: ClassVar[IdKind] = "given"
-    __refs__ = {"course_id": COURSE}
+    __refs__: ClassVar[Mapping[str, Ref]] = {"course_id": COURSE}
 
     id: str  # citable passage id
     course_id: int
@@ -295,7 +304,7 @@ class CorpusPassage(Document):
 @dataclass(kw_only=True)
 class Consent(Document):
     __collection__ = "consents"
-    __refs__ = {"learner_id": LEARNER, "course_id": COURSE}
+    __refs__: ClassVar[Mapping[str, Ref]] = {"learner_id": LEARNER, "course_id": COURSE}
 
     id: int = 0
     learner_id: str

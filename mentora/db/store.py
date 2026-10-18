@@ -23,7 +23,7 @@ from uuid import uuid4
 from pymongo import ReturnDocument
 from pymongo.collection import Collection
 from pymongo.database import Database
-from pymongo.errors import DuplicateKeyError
+from pymongo.errors import BulkWriteError, DuplicateKeyError
 
 from mentora.db.documents import Document, IntegrityError
 from mentora.db.models import MODELS
@@ -89,8 +89,8 @@ class Store:
 
     def flush(self) -> None:
         pending, self._pending = self._pending, []
-        for obj in pending:
-            self._insert(obj)
+        if pending:
+            self._insert_all(pending)
         for key, obj in list(self._identity.items()):
             self._update_if_dirty(key, obj)
 
@@ -228,7 +228,7 @@ class Store:
             key = (model.__collection__, raw["_id"])
             if key in self._identity:
                 tracked = self._identity[key]
-                for name, value in values.items():
+                for name in values:
                     setattr(tracked, name, getattr(obj, name))
                 self._snapshots[key] = copy.deepcopy(tracked.to_mongo())
             n += 1
@@ -254,41 +254,82 @@ class Store:
         self._snapshots.pop((name, _id), None)
         self._known.discard((name, _id))
 
-    def _next_id(self, name: str) -> int:
+    def _reserve_ids(self, name: str, n: int) -> range:
+        """n consecutive integer ids for a collection, in one round trip."""
         doc = self.db["counters"].find_one_and_update(
-            {"_id": name}, {"$inc": {"seq": 1}}, upsert=True, return_document=ReturnDocument.AFTER
+            {"_id": name}, {"$inc": {"seq": n}}, upsert=True, return_document=ReturnDocument.AFTER
         )
-        return int(doc["seq"])
+        assert doc is not None  # upsert with ReturnDocument.AFTER always returns the document
+        last = int(doc["seq"])
+        return range(last - n + 1, last + 1)
 
-    def _check_refs(self, obj: Document, fields: Iterable[str] | None = None) -> None:
+    def _check_refs(
+        self,
+        obj: Document,
+        fields: Iterable[str] | None = None,
+        batch: set[tuple[str, Any]] | None = None,
+    ) -> None:
         for name, ref in obj.__refs__.items():
             if fields is not None and name not in fields:
                 continue
             value = getattr(obj, name)
-            if value is None or (ref.collection, value) in self._known:
+            key = (ref.collection, value)
+            if value is None or key in self._known or (batch is not None and key in batch):
                 continue
             if self.db[ref.collection].count_documents({"_id": value}, limit=1) == 0:
                 raise IntegrityError(f"{obj.__collection__}.{name}={value!r}: no such row")
             self._known.add((ref.collection, value))
 
-    def _insert(self, obj: Document) -> None:
-        kind = obj.__id_kind__
-        if kind == "counter" and not obj.pk:
-            setattr(obj, obj.__pk__, self._next_id(obj.__collection__))
-        elif kind == "uuid" and not obj.pk:
-            setattr(obj, obj.__pk__, str(uuid4()))
-        obj.validate()
-        self._check_refs(obj)
-        raw = obj.to_mongo()
+    def _insert_all(self, pending: list[Document]) -> None:
+        # Ids first: one counter round trip per collection.
+        need: dict[str, list[Document]] = {}
+        for obj in pending:
+            if obj.__id_kind__ == "counter" and not obj.pk:
+                need.setdefault(obj.__collection__, []).append(obj)
+            elif obj.__id_kind__ == "uuid" and not obj.pk:
+                setattr(obj, obj.__pk__, str(uuid4()))
+        for name, objs in need.items():
+            for obj, new_id in zip(objs, self._reserve_ids(name, len(objs)), strict=True):
+                setattr(obj, obj.__pk__, new_id)
+        sequenced: dict[str, list[Document]] = {}
+        for obj in pending:
+            if obj.__sequence__ and not getattr(obj, obj.__sequence__):
+                sequenced.setdefault(f"{obj.__collection__}.{obj.__sequence__}", []).append(obj)
+        for name, objs in sequenced.items():
+            for obj, seq in zip(objs, self._reserve_ids(name, len(objs)), strict=True):
+                setattr(obj, obj.__sequence__ or "", seq)
+        # Objects added together may reference each other (a learner and its session).
+        batch = {self._key(o) for o in pending}
+        for obj in pending:
+            obj.validate()
+            self._check_refs(obj, batch=batch)
+        start = 0
+        while start < len(pending):  # one insert_many per run of the same collection
+            name = pending[start].__collection__
+            end = start
+            while end < len(pending) and pending[end].__collection__ == name:
+                end += 1
+            self._insert_run(name, pending[start:end])
+            start = end
+
+    def _insert_run(self, name: str, objs: list[Document]) -> None:
+        raws = [o.to_mongo() for o in objs]
         try:
-            self.db[obj.__collection__].insert_one(raw)
+            self.db[name].insert_many(raws, ordered=True)
+            done = len(objs)
+            error: Exception | None = None
+        except BulkWriteError as exc:
+            done, error = int(exc.details.get("nInserted", 0)), exc
         except DuplicateKeyError as exc:
-            raise IntegrityError(str(exc)) from exc
-        key = self._key(obj)
-        self._journal.append((obj.__collection__, obj.pk, None))
-        self._identity[key] = obj
-        self._snapshots[key] = copy.deepcopy(raw)
-        self._known.add(key)
+            done, error = 0, exc
+        for obj, raw in zip(objs[:done], raws[:done], strict=True):
+            key = self._key(obj)
+            self._journal.append((name, obj.pk, None))
+            self._identity[key] = obj
+            self._snapshots[key] = copy.deepcopy(raw)
+            self._known.add(key)
+        if error is not None:
+            raise IntegrityError(str(error)) from error
 
     def _update_if_dirty(self, key: tuple[str, Any], obj: Document) -> None:
         before = self._snapshots[key]

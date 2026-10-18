@@ -16,7 +16,7 @@ from pathlib import Path
 
 from mentora.config import get_settings
 from mentora.course import load_course, load_items, upsert_course, upsert_items
-from mentora.db import Base, make_engine, make_session_factory
+from mentora.db import connect
 from mentora.policy import registry
 from mentora.rag.embeddings import make_embedder
 from mentora.rag.ingest import (
@@ -49,12 +49,7 @@ def main() -> None:
     ap.add_argument("--sessions", type=int, default=60)
     args = ap.parse_args()
 
-    engine = make_engine(settings.database_url)
-    if engine.dialect.name == "sqlite":
-        Base.metadata.create_all(engine)
-    else:
-        print("PostgreSQL: make sure `alembic upgrade head` has been run.")
-    factory = make_session_factory(engine)
+    factory = connect(settings.database_url)  # creates indexes if missing
 
     course = load_course(settings.app.concepts_file)
     with factory.begin() as db:

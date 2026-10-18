@@ -12,17 +12,17 @@ reasons, and the current policy stays. Both are valid outcomes.
 from __future__ import annotations
 
 import hashlib
+import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
 import numpy as np
 import torch
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from mentora.config.settings import Settings
-from mentora.db import Base, make_engine, make_session_factory
+from mentora.db import StoreFactory, connect
+from mentora.db.client import drop_mock
 from mentora.offline.fairness import fairness_check
 from mentora.offline.ope_dr import evaluate, model_target, rule_target
 from mentora.offline.policies import CQLEnsemble, LearnedProposer, TabularQ
@@ -67,27 +67,27 @@ def simulate_candidate(
     settings: Settings, model: CQLEnsemble | TabularQ, action_ids: list[str], version: str
 ) -> dict[str, object]:
     """Run the candidate in deploy mode against simulated learners in a throwaway database."""
-    engine = make_engine(
-        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
-    )
-    Base.metadata.create_all(engine)
-    factory = make_session_factory(engine)
-    proposer = LearnedProposer(model, action_ids, default_catalogue(), version)
-    stats = run_simulation(
-        settings,
-        factory,
-        n_sessions=settings.offline.sim_sessions,
-        turns=settings.offline.sim_turns,
-        seed=settings.policy.seed + 1,
-        proposer=proposer,
-        policy_mode="deploy",
-    )
+    url = f"mongomock://sim_{uuid.uuid4().hex[:12]}"  # in memory, never the real database
+    try:
+        factory = connect(url)
+        proposer = LearnedProposer(model, action_ids, default_catalogue(), version)
+        stats = run_simulation(
+            settings,
+            factory,
+            n_sessions=settings.offline.sim_sessions,
+            turns=settings.offline.sim_turns,
+            seed=settings.policy.seed + 1,
+            proposer=proposer,
+            policy_mode="deploy",
+        )
+    finally:
+        drop_mock(url)
     return stats.as_dict()
 
 
 def run_offline_pipeline(
     settings: Settings,
-    session_factory: sessionmaker[Session] | None = None,
+    session_factory: StoreFactory | None = None,
     *,
     method: str | None = None,
     data_label: str = "logged sessions",
@@ -95,7 +95,7 @@ def run_offline_pipeline(
 ) -> PipelineResult:
     cfg, pcfg = settings.offline, settings.policy
     method = method or cfg.method
-    factory = session_factory or make_session_factory(make_engine(settings.database_url))
+    factory = session_factory or connect(settings.database_url)
     catalogue = default_catalogue()
     data = build_dataset(factory, catalogue)
     if len(data.episodes) < cfg.min_episodes or len(data.learners) < 3:

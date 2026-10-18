@@ -217,7 +217,7 @@ class Settings(BaseSettings):
     )
 
     # Deployment-specific values (env only, not in defaults.yaml).
-    database_url: str = "sqlite:///./mentora_dev.db"
+    database_url: str = "mongodb://localhost:27017/mentora"
     redis_url: str = "redis://localhost:6379/0"
     hosted_llm_api_key: SecretStr = Field(
         default=SecretStr(""),

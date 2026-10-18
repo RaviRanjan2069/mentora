@@ -6,6 +6,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import re
 import tempfile
 from pathlib import Path
 from typing import Annotated, Any
@@ -13,13 +14,12 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
-from sqlalchemy import delete, func, select, text
-from sqlalchemy.orm import Session
 
 from mentora.analytics import class_overview, student_detail, students_summary
 from mentora.api.deps import User, db_session, orchestrator, require_teacher
 from mentora.config.settings import Settings
 from mentora.course import item_concept_keys
+from mentora.db import ASC, Store
 from mentora.db import models as m
 from mentora.orchestrator.turn import Orchestrator
 from mentora.rag.embeddings import make_embedder
@@ -34,7 +34,7 @@ from mentora.rag.ingest import (
 
 router = APIRouter(prefix="/api/teacher", tags=["teacher-console"])
 Teacher = Annotated[User, Depends(require_teacher)]
-Db = Annotated[Session, Depends(db_session)]
+Db = Annotated[Store, Depends(db_session)]
 Orch = Annotated[Orchestrator, Depends(orchestrator)]
 
 UPLOAD_SUFFIXES = TEXT_SUFFIXES | {".pdf", ".pptx", ".yaml", ".yml"}
@@ -87,8 +87,8 @@ def status(request: Request, user: Teacher, db: Db, orch: Orch) -> list[dict[str
     s: Settings = request.app.state.settings
     out = [{"name": "API server", "state": "running", "detail": "responding"}]
     try:
-        db.execute(text("SELECT 1"))
-        out.append({"name": "Database", "state": "running", "detail": db.bind.dialect.name})  # type: ignore[union-attr]
+        db.db.command("ping")
+        out.append({"name": "Database", "state": "running", "detail": "MongoDB"})
     except Exception as exc:
         out.append({"name": "Database", "state": "down", "detail": str(exc)[:80]})
     if s.jobs.mode == "inline":
@@ -116,15 +116,8 @@ def status(request: Request, user: Teacher, db: Db, orch: Orch) -> list[dict[str
         "local": _local_llm_status(s),
     }[s.llm.backend]
     out.append({"name": "LLM service", "state": llm[0], "detail": llm[1]})
-    n = (
-        db.scalar(
-            select(func.count())
-            .select_from(m.CorpusPassage)
-            .where(m.CorpusPassage.course_id == orch.course_id)
-        )
-        or 0
-    )
-    store = "pgvector" if db.bind.dialect.name == "postgresql" else "in-memory index"  # type: ignore[union-attr]
+    n = db.count(m.CorpusPassage, {"course_id": orch.course_id})
+    store = "MongoDB + in-memory index"
     out.append(
         {
             "name": "Vector store",
@@ -140,11 +133,15 @@ def status(request: Request, user: Teacher, db: Db, orch: Orch) -> list[dict[str
 
 @router.get("/materials")
 def materials(user: Teacher, db: Db, orch: Orch) -> list[dict[str, Any]]:
-    rows = db.execute(
-        select(m.CorpusPassage.source_file, func.count(), func.min(m.CorpusPassage.week))
-        .where(m.CorpusPassage.course_id == orch.course_id)
-        .group_by(m.CorpusPassage.source_file)
-    ).all()
+    grouped: dict[str | None, list[int | None]] = {}
+    for source, week in db.values(
+        m.CorpusPassage, ["source_file", "week"], {"course_id": orch.course_id}
+    ):
+        grouped.setdefault(source, []).append(week)
+    rows = [  # (source_file, passages, earliest week) like SQL GROUP BY with MIN
+        (source, len(weeks), min((w for w in weeks if w is not None), default=None))
+        for source, weeks in grouped.items()
+    ]
     files: dict[str, dict[str, Any]] = {}
     for source, n, week in rows:
         name = (source or "unknown").split("#", 1)[0]
@@ -191,14 +188,17 @@ async def upload_material(
 
 @router.delete("/materials/{source}", status_code=204)
 def delete_material(source: str, request: Request, user: Teacher, db: Db, orch: Orch) -> None:
-    result = db.execute(
-        delete(m.CorpusPassage).where(
-            m.CorpusPassage.course_id == orch.course_id,
-            (m.CorpusPassage.source_file == source)
-            | m.CorpusPassage.source_file.startswith(f"{source}#"),
-        )
+    deleted = db.delete_many(
+        m.CorpusPassage,
+        {
+            "course_id": orch.course_id,
+            "$or": [
+                {"source_file": source},
+                {"source_file": {"$regex": f"^{re.escape(source)}#"}},
+            ],
+        },
     )
-    if not result.rowcount:  # type: ignore[attr-defined]
+    if not deleted:
         raise HTTPException(404, "No material from that file")
     db.commit()
     orch.refresh_rag()
@@ -228,9 +228,7 @@ def items(user: Teacher, db: Db, orch: Orch) -> list[TeacherItemOut]:
             answer_key=i.answer_key,
             concepts=keys.get(i.id, []),
         )
-        for i in db.scalars(
-            select(m.Item).where(m.Item.course_id == orch.course_id).order_by(m.Item.id)
-        )
+        for i in db.find(m.Item, {"course_id": orch.course_id}, sort=[("id", ASC)])
     ]
 
 

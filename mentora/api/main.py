@@ -5,21 +5,20 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy.orm import Session, sessionmaker
 from starlette.middleware.sessions import SessionMiddleware
 
 from mentora import __version__
 from mentora.api import lti
 from mentora.api.routes import auth, console, health, learner, rag, teacher
 from mentora.config import Settings, get_settings
-from mentora.db import Base, make_engine, make_session_factory
+from mentora.db import StoreFactory, connect
 
 STATIC_DIR = Path(__file__).with_name("static")
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
 
 def create_app(
-    settings: Settings | None = None, session_factory: sessionmaker[Session] | None = None
+    settings: Settings | None = None, session_factory: StoreFactory | None = None
 ) -> FastAPI:
     settings = settings or get_settings()
     app = FastAPI(
@@ -28,10 +27,7 @@ def create_app(
         description="Mentora: a Self-Learning Strategy Agent for self-regulated learning.",
     )
     if session_factory is None:
-        engine = make_engine(settings.database_url)
-        if engine.dialect.name == "sqlite":  # dev convenience; Postgres uses Alembic
-            Base.metadata.create_all(engine)
-        session_factory = make_session_factory(engine)
+        session_factory = connect(settings.database_url)  # creates indexes (idempotent)
     app.state.settings = settings
     app.state.session_factory = session_factory
     app.state.orchestrator = None

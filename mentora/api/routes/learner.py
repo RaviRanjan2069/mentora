@@ -14,11 +14,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
 from mentora.api.deps import User, db_session, orchestrator, require_learner
 from mentora.course import item_concept_keys
+from mentora.db import ASC, DESC, Store
 from mentora.db import models as m
 from mentora.learner_model.calibration import CalibrationTracker
 from mentora.llm.client import streaming
@@ -29,7 +28,7 @@ from mentora.orchestrator.turn import Orchestrator, TurnError, TurnResult
 router = APIRouter(prefix="/api", tags=["learner"])
 log = logging.getLogger("mentora.api")
 Learner = Annotated[User, Depends(require_learner)]
-Db = Annotated[Session, Depends(db_session)]
+Db = Annotated[Store, Depends(db_session)]
 Orch = Annotated[Orchestrator, Depends(orchestrator)]
 
 
@@ -96,7 +95,7 @@ class ItemOut(BaseModel):
     concepts: list[str]
 
 
-def _own_session(db: Session, user: User, session_id: str) -> m.Session:
+def _own_session(db: Store, user: User, session_id: str) -> m.Session:
     sess = db.get(m.Session, session_id)
     if sess is None or sess.learner_id != user.id:
         raise HTTPException(404, "Session not found")
@@ -191,7 +190,7 @@ def stream_message(
 @router.get("/items")
 def list_items(user: Learner, db: Db, orch: Orch) -> list[ItemOut]:
     concepts = item_concept_keys(db, orch.course_id)
-    rows = db.scalars(select(m.Item).where(m.Item.course_id == orch.course_id).order_by(m.Item.id))
+    rows = db.find(m.Item, {"course_id": orch.course_id}, sort=[("id", ASC)])
     # answer_key is never sent to the browser
     return [
         ItemOut(
@@ -286,10 +285,8 @@ class DashboardOut(BaseModel):
 @router.get("/me/dashboard")
 def dashboard(user: Learner, db: Db, orch: Orch) -> DashboardOut:
     goals = []
-    for g in db.scalars(
-        select(m.Goal).where(m.Goal.learner_id == user.id).order_by(m.Goal.id.desc()).limit(10)
-    ):
-        plan = db.scalars(select(m.Plan).where(m.Plan.goal_id == g.id)).first()
+    for g in db.find(m.Goal, {"learner_id": user.id}, sort=[("id", DESC)], limit=10):
+        plan = db.find_one(m.Plan, {"goal_id": g.id})
         goals.append(
             GoalOut(
                 id=g.id,
@@ -302,14 +299,7 @@ def dashboard(user: Learner, db: Db, orch: Orch) -> DashboardOut:
             )
         )
 
-    events = [
-        Statement.model_validate(raw)
-        for raw in db.scalars(
-            select(m.Event.statement)
-            .where(m.Event.learner_id == user.id)
-            .order_by(m.Event.timestamp)
-        )
-    ]
+    events = [Statement.model_validate(raw) for raw in _statements(db, user.id)]
     cfg = orch.settings.learner_model
     calib = CalibrationTracker(cfg.calibration_eta, cfg.calibration_init)
     for st in events:
@@ -344,10 +334,10 @@ def dashboard(user: Learner, db: Db, orch: Orch) -> DashboardOut:
         TeacherReplyOut(
             id=e.id, question=e.message, response=e.teacher_response or "", at=e.resolved_at
         )
-        for e in db.scalars(
-            select(m.Escalation)
-            .where(m.Escalation.learner_id == user.id, m.Escalation.teacher_response.is_not(None))
-            .order_by(m.Escalation.id.desc())
+        for e in db.find(
+            m.Escalation,
+            {"learner_id": user.id, "teacher_response": {"$ne": None}},
+            sort=[("id", DESC)],
         )
     ]
     return DashboardOut(
@@ -395,13 +385,9 @@ def delete_all_memory(user: Learner, db: Db) -> None:
 @router.get("/me/export")
 def export_my_data(user: Learner, db: Db, orch: Orch) -> JSONResponse:
     """Everything stored about the learner, as one JSON download (data portability)."""
-    sessions = db.scalars(
-        select(m.Session).where(m.Session.learner_id == user.id).order_by(m.Session.started_at)
-    )
-    goals = db.scalars(select(m.Goal).where(m.Goal.learner_id == user.id).order_by(m.Goal.id))
-    escalations = db.scalars(
-        select(m.Escalation).where(m.Escalation.learner_id == user.id).order_by(m.Escalation.id)
-    )
+    sessions = db.find(m.Session, {"learner_id": user.id}, sort=[("started_at", ASC)])
+    goals = db.find(m.Goal, {"learner_id": user.id}, sort=[("id", ASC)])
+    escalations = db.find(m.Escalation, {"learner_id": user.id}, sort=[("id", ASC)])
     data = {
         "pseudonym": user.id,
         "exported_at": orch.clock(),
@@ -431,13 +417,7 @@ def export_my_data(user: Learner, db: Db, orch: Orch) -> JSONResponse:
             }
             for e in escalations
         ],
-        "events": list(
-            db.scalars(
-                select(m.Event.statement)
-                .where(m.Event.learner_id == user.id)
-                .order_by(m.Event.timestamp)
-            )
-        ),
+        "events": _statements(db, user.id),
     }
     return JSONResponse(
         jsonable_encoder(data),
@@ -454,20 +434,32 @@ def home(user: Learner, db: Db, orch: Orch) -> dict[str, object]:
     from mentora.analytics import learner_home
 
     data = learner_home(db, orch, user.id, orch.clock())
-    unread = db.scalar(
-        select(func.count())
-        .select_from(m.Escalation)
-        .where(m.Escalation.learner_id == user.id, m.Escalation.teacher_response.is_not(None))
+    unread = db.count(m.Escalation, {"learner_id": user.id, "teacher_response": {"$ne": None}})
+    return {"name": user.name, "teacher_replies": unread, **data}
+
+
+def _open_session_id(db: Store, learner_id: str) -> str | None:
+    rows = db.values(
+        m.Session,
+        ["id"],
+        {"learner_id": learner_id, "ended_at": None},
+        sort=[("started_at", DESC)],
+        limit=1,
     )
-    return {"name": user.name, "teacher_replies": int(unread or 0), **data}
+    return str(rows[0][0]) if rows else None
 
 
-def _open_session_id(db: Session, learner_id: str) -> str | None:
-    return db.scalars(
-        select(m.Session.id)
-        .where(m.Session.learner_id == learner_id, m.Session.ended_at.is_(None))
-        .order_by(m.Session.started_at.desc())
-    ).first()
+def _statements(db: Store, learner_id: str) -> list[dict[str, Any]]:
+    """The learner's xAPI statements in time order."""
+    return [
+        raw
+        for (raw,) in db.values(
+            m.Event,
+            ["statement"],
+            {"learner_id": learner_id},
+            sort=[("timestamp", ASC), ("seq", ASC)],
+        )
+    ]
 
 
 @router.get("/me/session")
@@ -542,10 +534,8 @@ class ResourceOut(BaseModel):
 
 @router.get("/resources")
 def resources(user: Learner, db: Db, orch: Orch) -> list[ResourceOut]:
-    rows = db.scalars(
-        select(m.CorpusPassage)
-        .where(m.CorpusPassage.course_id == orch.course_id)
-        .order_by(m.CorpusPassage.week, m.CorpusPassage.id)
+    rows = db.find(
+        m.CorpusPassage, {"course_id": orch.course_id}, sort=[("week", ASC), ("id", ASC)]
     )
     return [
         ResourceOut(

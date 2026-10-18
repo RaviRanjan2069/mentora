@@ -8,10 +8,9 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from mentora.api.deps import User, db_session, orchestrator, require_teacher
+from mentora.db import ASC, DESC, Store
 from mentora.db import models as m
 from mentora.logging_xapi.statements import VERBS, Statement
 from mentora.memory.store import pending_course_items, review_course_item
@@ -21,7 +20,7 @@ from mentora.safety.teacher_rules import parse_rule
 
 router = APIRouter(prefix="/api/teacher", tags=["teacher"])
 Teacher = Annotated[User, Depends(require_teacher)]
-Db = Annotated[Session, Depends(db_session)]
+Db = Annotated[Store, Depends(db_session)]
 Orch = Annotated[Orchestrator, Depends(orchestrator)]
 
 
@@ -48,9 +47,12 @@ class AnswerIn(BaseModel):
 
 @router.get("/escalations")
 def escalations(user: Teacher, db: Db, status: str | None = None) -> list[EscalationOut]:
-    stmt = select(m.Escalation).order_by(m.Escalation.created_at.desc()).limit(200)
-    if status:
-        stmt = stmt.where(m.Escalation.status == status)
+    rows = db.find(
+        m.Escalation,
+        {"status": status} if status else {},
+        sort=[("created_at", DESC), ("id", DESC)],
+        limit=200,
+    )
     return [
         EscalationOut(
             id=e.id,
@@ -61,7 +63,7 @@ def escalations(user: Teacher, db: Db, status: str | None = None) -> list[Escala
             teacher_response=e.teacher_response,
             created_at=e.created_at,
         )
-        for e in db.scalars(stmt)
+        for e in rows
     ]
 
 
@@ -106,14 +108,15 @@ class DecisionOut(BaseModel):
 
 @router.get("/decisions")
 def decisions(user: Teacher, db: Db, orch: Orch, limit: int = 50) -> list[DecisionOut]:
-    rows = db.scalars(
-        select(m.Event.statement)
-        .where(m.Event.verb == VERBS["received"])
-        .order_by(m.Event.timestamp.desc())
-        .limit(min(limit, 500))
+    rows = db.values(
+        m.Event,
+        ["statement"],
+        {"verb": VERBS["received"]},
+        sort=[("timestamp", DESC), ("seq", DESC)],
+        limit=min(limit, 500),
     )
     out = []
-    for raw in rows:
+    for (raw,) in rows:
         st = Statement.model_validate(raw)
         ext = st.tutor_action
         if ext is None:
@@ -155,11 +158,7 @@ class RuleOut(BaseModel):
 
 @router.get("/rules")
 def list_rules(user: Teacher, db: Db, orch: Orch) -> list[RuleOut]:
-    rows = db.scalars(
-        select(m.TeacherRule)
-        .where(m.TeacherRule.course_id == orch.course_id)
-        .order_by(m.TeacherRule.id)
-    )
+    rows = db.find(m.TeacherRule, {"course_id": orch.course_id}, sort=[("id", ASC)])
     return [RuleOut(id=r.id, name=r.name, rule=r.rule, active=r.active) for r in rows]
 
 
@@ -250,7 +249,7 @@ def policies(user: Teacher, db: Db) -> list[PolicyOut]:
             created_at=p.created_at,
             decided_at=p.decided_at,
         )
-        for p in db.scalars(select(m.Policy).order_by(m.Policy.created_at.desc()))
+        for p in db.find(m.Policy, sort=[("created_at", DESC)])
     ]
 
 

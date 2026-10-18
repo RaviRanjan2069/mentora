@@ -4,13 +4,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
-from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from pymongo.errors import PyMongoError
 
 from mentora import SCHEMA_VERSION, __version__
 from mentora.api.deps import db_session
 from mentora.config.settings import Settings
+from mentora.db import Store
 
 router = APIRouter(tags=["health"])
 
@@ -26,12 +25,12 @@ class Health(BaseModel):
 
 
 @router.get("/health")
-def health(request: Request, db: Annotated[Session, Depends(db_session)]) -> Health:
+def health(request: Request, db: Annotated[Store, Depends(db_session)]) -> Health:
     settings: Settings = request.app.state.settings
     try:
-        db.execute(text("SELECT 1"))
+        db.db.command("ping")
         database = "ok"
-    except SQLAlchemyError:
+    except PyMongoError:
         database = "unreachable"
     return Health(
         status="ok" if database == "ok" else "degraded",

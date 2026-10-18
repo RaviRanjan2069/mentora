@@ -7,11 +7,9 @@ from __future__ import annotations
 
 import argparse
 
-from sqlalchemy import select
-
 from mentora.config import get_settings
 from mentora.course import load_course
-from mentora.db import make_engine, make_session_factory
+from mentora.db import connect
 from mentora.db import models as m
 from mentora.rag import build_pipeline
 
@@ -23,10 +21,13 @@ def main() -> None:
     ap.add_argument("--max-week", type=int, default=None)
     args = ap.parse_args()
 
-    factory = make_session_factory(make_engine())
+    factory = connect(settings.database_url)
     code = load_course(settings.app.concepts_file).code
     with factory() as db:
-        course_id = db.scalars(select(m.Course.id).where(m.Course.code == code)).one()
+        row = db.find_one(m.Course, {"code": code})
+        if row is None:
+            raise SystemExit(f"course {code} not found; run scripts/seed_demo.py first")
+        course_id = row.id
     pipeline = build_pipeline(settings, factory, course_id)
     for rank, hit in enumerate(pipeline.search(args.question, max_week=args.max_week), 1):
         print(f"{rank}. [{hit.passage.id}] score={hit.score:.3f} ({hit.passage.section})")

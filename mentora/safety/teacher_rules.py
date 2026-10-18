@@ -10,9 +10,8 @@ from __future__ import annotations
 from typing import Self
 
 from pydantic import BaseModel, ConfigDict, model_validator
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
+from mentora.db import ASC, Store
 from mentora.db import models as m
 from mentora.logging_xapi.statements import ActionRef
 from mentora.policy.catalogue import Agent, Catalogue, Phase, Style
@@ -86,12 +85,8 @@ def parse_rule(name: str, rule: dict[str, object], catalogue: Catalogue) -> Teac
     return TeacherRuleSpec.model_validate({"name": name, **rule}).check_against(catalogue)
 
 
-def load_teacher_rules(db: Session, course_id: int, catalogue: Catalogue) -> list[TeacherRuleSpec]:
+def load_teacher_rules(db: Store, course_id: int, catalogue: Catalogue) -> list[TeacherRuleSpec]:
     """Active rules for a course. A malformed rule raises: it is better to fail loudly
     than to silently ignore what a teacher asked for."""
-    rows = db.scalars(
-        select(m.TeacherRule)
-        .where(m.TeacherRule.course_id == course_id, m.TeacherRule.active.is_(True))
-        .order_by(m.TeacherRule.id)
-    )
+    rows = db.find(m.TeacherRule, {"course_id": course_id, "active": True}, sort=[("id", ASC)])
     return [parse_rule(r.name, r.rule, catalogue) for r in rows]

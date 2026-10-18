@@ -13,9 +13,9 @@ from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel
-from sqlalchemy.orm import Session, sessionmaker
 
 from mentora.config import Settings
+from mentora.db import StoreFactory
 from mentora.db import models as m
 from mentora.llm.client import LLMClient
 from mentora.llm.prompts import PromptRegistry, default_registry
@@ -236,7 +236,7 @@ def grounded_generate(
 
 
 def record_grounding_escalation(
-    session_factory: sessionmaker[Session],
+    session_factory: StoreFactory,
     learner_id: str,
     session_id: str | None,
     report: GroundingReport,

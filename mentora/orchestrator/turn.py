@@ -15,12 +15,10 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, update
-from sqlalchemy.orm import Session, sessionmaker
-
 from mentora.agents import AgentReply, TurnContext, TutorTeam
 from mentora.config.settings import Settings
 from mentora.course import CourseSpec, item_concept_keys, upsert_course
+from mentora.db import ASC, DESC, Store, StoreFactory
 from mentora.db import models as m
 from mentora.learner_model.engagement import engagement
 from mentora.learner_model.hmm_tactics import TacticHMM
@@ -165,7 +163,7 @@ class Orchestrator:
     def __init__(
         self,
         settings: Settings,
-        session_factory: sessionmaker[Session],
+        session_factory: StoreFactory,
         *,
         client: LLMClient,
         course: CourseSpec,
@@ -226,9 +224,7 @@ class Orchestrator:
         from mentora.rag import build_pipeline
 
         with self.factory() as db:
-            has = db.scalars(
-                select(m.CorpusPassage.id).where(m.CorpusPassage.course_id == self.course_id)
-            ).first()
+            has = db.count(m.CorpusPassage, {"course_id": self.course_id}) > 0
         self.rag = build_pipeline(self.settings, self.factory, self.course_id) if has else None
 
     def start_session(self, learner_id: str) -> TurnResult:
@@ -362,9 +358,7 @@ class Orchestrator:
             sess = db.get(m.Session, session_id)
             assert sess is not None
             sess.ended_at = now
-            rows = db.scalars(
-                select(m.Transition).where(m.Transition.session_id == session_id)
-            ).all()
+            rows = db.find(m.Transition, {"session_id": session_id})
             ret = sum(r.reward or 0.0 for r in rows)
             n = len(rows)
         self.memory.end_session(session_id)
@@ -388,21 +382,22 @@ class Orchestrator:
         return _Runtime(session_id, learner_id, tracker)
 
     def learner_history(
-        self, db: Session, learner_id: str, session_id: str, item_concepts: dict[int, list[str]]
+        self, db: Store, learner_id: str, session_id: str, item_concepts: dict[int, list[str]]
     ) -> list[Interaction]:
         """All answers from earlier sessions, so mastery carries over between sessions."""
-        rows = db.scalars(
-            select(m.Event.statement)
-            .where(
-                m.Event.learner_id == learner_id,
-                m.Event.session_id != session_id,
-                m.Event.verb == "http://adlnet.gov/expapi/verbs/answered",
-            )
-            .order_by(m.Event.timestamp)
-        ).all()
+        rows = db.values(
+            m.Event,
+            ["statement"],
+            {
+                "learner_id": learner_id,
+                "session_id": {"$ne": session_id},
+                "verb": "http://adlnet.gov/expapi/verbs/answered",
+            },
+            sort=[("timestamp", ASC), ("seq", ASC)],
+        )
         index = {c.key: i for i, c in enumerate(self.course.concepts)}
         out = []
-        for raw in rows:
+        for (raw,) in rows:
             st = Statement.model_validate(raw)
             keys = item_concepts.get(st.item_id or -1, [])
             concept = next((index[k] for k in keys if k in index), None)
@@ -419,11 +414,7 @@ class Orchestrator:
             if sess is None or sess.ended_at is not None:
                 raise TurnError(f"no open session {session_id}")
             learner_id = sess.learner_id
-            pending = db.scalars(
-                select(m.Transition)
-                .where(m.Transition.session_id == session_id)
-                .order_by(m.Transition.t.desc())
-            ).first()
+            pending = db.find_one(m.Transition, {"session_id": session_id}, sort=[("t", DESC)])
         rt = self._new_runtime(session_id, learner_id)
         for st in self.lrs.query(session_id=session_id):  # rebuild by replaying the log
             ext = st.tutor_action
@@ -467,16 +458,12 @@ class Orchestrator:
 
     # --- goals -----------------------------------------------------------------------------
 
-    def _active_goal(self, db: Session, rt: _Runtime) -> m.Goal | None:
-        return db.scalars(
-            select(m.Goal)
-            .where(
-                m.Goal.learner_id == rt.learner_id,
-                m.Goal.course_id == self.course_id,
-                m.Goal.status == "active",
-            )
-            .order_by(m.Goal.id.desc())
-        ).first()
+    def _active_goal(self, db: Store, rt: _Runtime) -> m.Goal | None:
+        return db.find_one(
+            m.Goal,
+            {"learner_id": rt.learner_id, "course_id": self.course_id, "status": "active"},
+            sort=[("id", DESC)],
+        )
 
     def _update_goals(self, rt: _Runtime, text: str, tags: SRLTags) -> None:
         srl = tags.model_dump()
@@ -489,12 +476,13 @@ class Orchestrator:
                 concepts = list(tag_concepts(text, self.course.concepts))
                 if not concepts and rt.current_item is not None:
                     concepts = rt.current_item.concepts
-                for old in db.scalars(
-                    select(m.Goal).where(
-                        m.Goal.learner_id == rt.learner_id,
-                        m.Goal.status == "active",
-                        m.Goal.course_id == self.course_id,
-                    )
+                for old in db.find(
+                    m.Goal,
+                    {
+                        "learner_id": rt.learner_id,
+                        "status": "active",
+                        "course_id": self.course_id,
+                    },
                 ):
                     old.status = "abandoned"
                 g_smart = self.tagger.goal_smart(text)
@@ -515,7 +503,7 @@ class Orchestrator:
             if tags.plan_stated:
                 goal_row = self._active_goal(db, rt)
                 if goal_row is not None:
-                    plan = db.scalars(select(m.Plan).where(m.Plan.goal_id == goal_row.id)).first()
+                    plan = db.find_one(m.Plan, {"goal_id": goal_row.id})
                     if plan is not None:
                         plan.steps = [*plan.steps, {"text": text, "done": False}]
 
@@ -526,7 +514,7 @@ class Orchestrator:
             if goal is None or not goal.concept_keys:
                 return
             k = rt.tracker.concept_mastery(goal.concept_keys)
-            plan = db.scalars(select(m.Plan).where(m.Plan.goal_id == goal.id)).first()
+            plan = db.find_one(m.Plan, {"goal_id": goal.id})
             if plan is not None:
                 steps = []
                 for s in plan.steps:
@@ -554,21 +542,23 @@ class Orchestrator:
         window_start = now - timedelta(days=cfg.engagement_window_days)
         with self.factory() as db:
             goal = self._active_goal(db, rt)
-            plan = (
-                db.scalars(select(m.Plan).where(m.Plan.goal_id == goal.id)).first()
-                if goal
-                else None
-            )
-            starts = db.scalars(
-                select(m.Session.started_at).where(
-                    m.Session.learner_id == rt.learner_id, m.Session.started_at >= window_start
+            plan = db.find_one(m.Plan, {"goal_id": goal.id}) if goal else None
+            starts = [
+                v
+                for (v,) in db.values(
+                    m.Session,
+                    ["started_at"],
+                    {"learner_id": rt.learner_id, "started_at": {"$gte": window_start}},
                 )
-            ).all()
-            times = db.scalars(
-                select(m.Event.timestamp).where(
-                    m.Event.learner_id == rt.learner_id, m.Event.timestamp >= window_start
+            ]
+            times = [
+                v
+                for (v,) in db.values(
+                    m.Event,
+                    ["timestamp"],
+                    {"learner_id": rt.learner_id, "timestamp": {"$gte": window_start}},
                 )
-            ).all()
+            ]
         eng = engagement(starts, times, rt.event_times, now, cfg)
         snap = rt.tracker.snapshot(
             goal_concepts=goal.concept_keys if goal else [],
@@ -610,10 +600,10 @@ class Orchestrator:
         if self.reward_terms is not None:
             self.reward_terms.append((rt.session_id, p.t, terms))
         with self.factory.begin() as db:
-            db.execute(
-                update(m.Transition)
-                .where(m.Transition.session_id == rt.session_id, m.Transition.t == p.t)
-                .values(reward=terms.total, next_state=state)
+            db.update_many(
+                m.Transition,
+                {"session_id": rt.session_id, "t": p.t},
+                {"reward": terms.total, "next_state": state},
             )
         rt.pending = None
         rt.flags = _StepFlags()
@@ -652,11 +642,7 @@ class Orchestrator:
         with self.factory() as db:
             rules = load_teacher_rules(db, self.course_id, self.catalogue)
             goal = self._active_goal(db, rt)
-            plan = (
-                db.scalars(select(m.Plan).where(m.Plan.goal_id == goal.id)).first()
-                if goal
-                else None
-            )
+            plan = db.find_one(m.Plan, {"goal_id": goal.id}) if goal else None
             has_plan = plan is not None and any("text" in step for step in plan.steps)
         distress = detect_distress(learner_text).detected
         ctx = FilterContext(

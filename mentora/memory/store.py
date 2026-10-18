@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from sqlalchemy import delete, select
-from sqlalchemy.orm import Session
-
+from mentora.db import ASC, DESC, Store
 from mentora.db import models as m
 
 
@@ -24,23 +22,21 @@ def record_outcome(item: m.MemoryItem, helped: bool, now: datetime) -> None:
     item.last_used_at = now
 
 
-def learner_items(db: Session, learner_id: str, course_id: int) -> list[m.MemoryItem]:
+def learner_items(db: Store, learner_id: str, course_id: int) -> list[m.MemoryItem]:
     """What a learner sees on the 'my memory' page (their own, active items)."""
-    return list(
-        db.scalars(
-            select(m.MemoryItem)
-            .where(
-                m.MemoryItem.learner_id == learner_id,
-                m.MemoryItem.course_id == course_id,
-                m.MemoryItem.scope == "learner",
-                m.MemoryItem.status == "active",
-            )
-            .order_by(m.MemoryItem.created_at.desc())
-        )
+    return db.find(
+        m.MemoryItem,
+        {
+            "learner_id": learner_id,
+            "course_id": course_id,
+            "scope": "learner",
+            "status": "active",
+        },
+        sort=[("created_at", DESC), ("id", DESC)],
     )
 
 
-def delete_learner_item(db: Session, learner_id: str, item_id: int) -> bool:
+def delete_learner_item(db: Store, learner_id: str, item_id: int) -> bool:
     """A learner may delete only their own learner-scope items."""
     item = db.get(m.MemoryItem, item_id)
     if item is None or item.learner_id != learner_id or item.scope != "learner":
@@ -49,37 +45,25 @@ def delete_learner_item(db: Session, learner_id: str, item_id: int) -> bool:
     return True
 
 
-def delete_all_learner_memory(db: Session, learner_id: str) -> int:
-    result = db.execute(delete(m.MemoryItem).where(m.MemoryItem.learner_id == learner_id))
-    return int(result.rowcount or 0)  # type: ignore[attr-defined]
+def delete_all_learner_memory(db: Store, learner_id: str) -> int:
+    return db.delete_many(m.MemoryItem, {"learner_id": learner_id})
 
 
-def purge_expired(db: Session, retention_days: int, now: datetime) -> int:
+def purge_expired(db: Store, retention_days: int, now: datetime) -> int:
     """Delete learner memory older than the retention limit (design rule 9)."""
     cutoff = now - timedelta(days=retention_days)
-    result = db.execute(
-        delete(m.MemoryItem).where(
-            m.MemoryItem.scope == "learner", m.MemoryItem.created_at < cutoff
-        )
-    )
-    return int(result.rowcount or 0)  # type: ignore[attr-defined]
+    return db.delete_many(m.MemoryItem, {"scope": "learner", "created_at": {"$lt": cutoff}})
 
 
-def pending_course_items(db: Session, course_id: int) -> list[m.MemoryItem]:
-    return list(
-        db.scalars(
-            select(m.MemoryItem)
-            .where(
-                m.MemoryItem.course_id == course_id,
-                m.MemoryItem.scope == "course",
-                m.MemoryItem.status == "pending_review",
-            )
-            .order_by(m.MemoryItem.created_at)
-        )
+def pending_course_items(db: Store, course_id: int) -> list[m.MemoryItem]:
+    return db.find(
+        m.MemoryItem,
+        {"course_id": course_id, "scope": "course", "status": "pending_review"},
+        sort=[("created_at", ASC), ("id", ASC)],
     )
 
 
-def review_course_item(db: Session, item_id: int, approve: bool) -> m.MemoryItem:
+def review_course_item(db: Store, item_id: int, approve: bool) -> m.MemoryItem:
     item = db.get(m.MemoryItem, item_id)
     if item is None or item.scope != "course" or item.status != "pending_review":
         raise ValueError(f"memory item {item_id} is not awaiting review")
