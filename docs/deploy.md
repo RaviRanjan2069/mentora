@@ -3,7 +3,7 @@
 A public Mentora demo for ₹0: one Render free web service (FastAPI serving the built React
 app at `/app`) and a Neon free PostgreSQL database (pgvector). No domain, no card, no API key.
 
-> The demo runs on **synthetic course data and simulated history**. Nothing in it has been
+> The demo runs on a **synthetic course** with no simulated students. Nothing in it has been
 > validated with real learners. Do not put real student data into the public demo.
 
 ## What runs where
@@ -55,13 +55,18 @@ $env:MENTORA_LLM__BACKEND = "offline"
 pytest -m postgres -p no:cacheprovider
 alembic downgrade base                       # clean up the test rows (empty DB only!)
 alembic upgrade head                         # schema v1 + CREATE EXTENSION vector
-python scripts/seed_demo.py --with-history   # ONCE: --with-history adds 60 more simulated sessions per run
+python scripts/seed_demo.py                  # course, quiz items, course notes, rule policy
 Remove-Item Env:MENTORA_DATABASE_URL, Env:MENTORA_RAG__EMBEDDER, Env:MENTORA_LLM__BACKEND
 ```
 
+Do not use `--with-history` on the public demo: it adds simulated students (`lrn_sim_*`)
+and takes over an hour against a remote database. Simulated students can be removed with
+`DELETE FROM learners WHERE id LIKE 'lrn_sim_%';` (their sessions, events, goals and
+escalations go with them).
+
 Never run `pytest -m postgres` or `alembic downgrade` against the database once the demo is
-live. Re-running `seed_demo.py` without `--with-history` is safe (course, items, passages and the
-rule policy are upserted).
+live. Re-running `seed_demo.py` is safe (course, items, passages and the rule policy are
+upserted).
 
 ### 3. Render service
 
