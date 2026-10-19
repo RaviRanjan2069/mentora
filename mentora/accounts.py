@@ -99,12 +99,45 @@ CLASS_CODE_RE = re.compile(r"^[A-Z0-9](?:[A-Z0-9-]{2,18})[A-Z0-9]$")
 
 
 def normalize_class_code(raw: str) -> str:
-    code = raw.strip().upper()
+    code = "".join(raw.split()).upper()  # "12345 67890" works too
     if not CLASS_CODE_RE.match(code) or "--" in code:
         raise AccountError(
             "Use 4-20 letters, digits or hyphens for the class code, e.g. RAO-PYTHON."
         )
     return code
+
+
+CLASS_CODE_DIGITS = 10
+
+
+def random_class_code() -> str:
+    """10 random digits, not starting with 0."""
+    low = 10 ** (CLASS_CODE_DIGITS - 1)
+    return str(low + secrets.randbelow(9 * low))
+
+
+def is_new_class_code(code: str) -> bool:
+    return len(code) == CLASS_CODE_DIGITS and code.isdigit() and code[0] != "0"
+
+
+def free_class_code(db: Store) -> str:
+    """A random class code no teacher has yet."""
+    while True:
+        code = random_class_code()
+        if db.get(m.ClassCode, code) is None:
+            return code
+
+
+def give_class_code(db: Store, account: m.Account, code: str | None = None) -> m.ClassCode:
+    """The teacher's permanent class code (``code`` if given, else a random free one)."""
+    row = m.ClassCode(
+        id=code or free_class_code(db),
+        teacher_id=account.id,
+        teacher_username=account.username,
+        teacher_name=account.name,
+    )
+    db.add(row)
+    return row
 
 
 def username_taken(db: Store, username: str) -> bool:

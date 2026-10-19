@@ -99,7 +99,7 @@ export default function teachers(root, { me }) {
         : null,
       h("section", { class: "card" },
         h("h2", null, "Join with a class code"),
-        h("p", { class: "muted", style: { marginTop: -6 } }, "Your teacher gives you a code, like RAO-PYTHON. They accept your request."),
+        h("p", { class: "muted", style: { marginTop: -6 } }, "Your teacher gives you a 10-digit class code, like 4831902157. They accept your request."),
         h("form", { class: "row", onSubmit: join },
           h("input", {
             type: "text", value: st.code, "data-key": "code", placeholder: "Class code", maxlength: "40",

@@ -271,3 +271,5 @@ img.photo.md, .photo-md { width: 40px; height: 40px; border-radius: 999px; objec
 .ask-code-actions { display: flex; gap: 8px; }
 .ask-code.done { display: flex; gap: 10px; align-items: flex-start; color: var(--text-primary); }
 .ask-code.done svg { width: 18px; height: 18px; flex: none; color: var(--brand); }
+.class-code-pick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.class-code-field { margin-top: 14px; }

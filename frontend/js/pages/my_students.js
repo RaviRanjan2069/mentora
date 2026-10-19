@@ -11,7 +11,7 @@ export default function myStudents(root, { me }) {
       h("p", { class: "muted" }, "Students join teachers who have a Mentora account. You signed in another way, so you see every student on the Students page.")));
     return undefined;
   }
-  const st = { requests: null, roster: null, busy: false, code: null, draft: "", editing: false };
+  const st = { requests: null, roster: null, busy: false, code: null };
 
   async function load() {
     try {
@@ -46,61 +46,19 @@ export default function myStudents(root, { me }) {
     await load();
   }
 
-  async function saveCode(e) {
-    e.preventDefault();
-    st.busy = true;
-    paint();
-    try {
-      const r = await fetch("/api/teacher/class-code", {
-        method: "PUT", credentials: "same-origin", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: st.draft }),
-      });
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not save the code.");
-      const changed = st.code && st.code !== data.code;
-      st.code = data.code;
-      st.editing = false;
-      toast(changed ? `Your class code is now ${data.code}. The old code no longer works.` : `Your class code is ${data.code}.`);
-    } catch (err) {
-      toast(errorText(err), "error");
-    }
-    st.busy = false;
-    paint();
-  }
-
-  async function removeCode() {
-    if (!window.confirm(`Remove the class code ${st.code}? Students will no longer be able to use it.`)) return;
-    await api.del("/api/teacher/class-code");
-    st.code = null;
-    paint();
-  }
-
   function codeCard() {
     const shareText = `Join my class on Mentora: sign in at ${window.location.origin}/app/, open My Teachers and enter the code ${st.code}.`;
-    const form = h("form", { class: "row", onSubmit: saveCode },
-      h("input", {
-        type: "text", value: st.draft, "data-key": "code", placeholder: "e.g. RAO-PYTHON", maxlength: "20",
-        autocomplete: "off", spellcheck: "false", style: { maxWidth: 240, textTransform: "uppercase" },
-        onInput: (e) => { st.draft = e.target.value; },
-      }),
-      h("button", { class: "btn primary", type: "submit", disabled: st.busy }, st.code ? "Save new code" : "Create code"),
-      st.code ? h("button", { type: "button", class: "btn", onClick: () => { st.editing = false; paint(); } }, "Cancel") : null);
     return h("section", { class: "card" },
       h("h2", null, "Your class code"),
-      st.code && !st.editing
+      st.code
         ? [h("div", { class: "row" },
             h("span", { class: "class-code" }, st.code),
             h("button", { class: "btn small", onClick: () => copyText(st.code) }, icon("copy"), " Copy code"),
-            h("button", { class: "btn small", onClick: () => copyText(shareText) }, icon("send"), " Copy invite message"),
-            h("button", { class: "btn small", onClick: () => { st.editing = true; st.draft = st.code; paint(); } }, icon("pen"), " Change"),
-            h("button", { class: "btn small danger", onClick: removeCode }, "Remove")),
+            h("button", { class: "btn small", onClick: () => copyText(shareText) }, icon("send"), " Copy invite message")),
           h("p", { class: "muted", style: { marginBottom: 0 } },
-            "Students enter this code on their My Teachers page. Each one arrives here as a request for you to accept. ",
-            "The code stays the same until you change it.")]
-        : [h("p", { class: "muted", style: { marginTop: -6 } },
-            "Choose a permanent code for your class (4-20 letters, digits or hyphens). Share it with your students; ",
-            "their requests appear below for you to accept."),
-          form]);
+            "This is your permanent class code. Students enter it on their My Teachers page, and each one arrives here ",
+            "as a request for you to accept.")]
+        : h("p", { class: "muted", style: { marginBottom: 0 } }, "Class codes are for teachers with a Mentora account."));
   }
 
   const who = (l) => h("div", { class: "person" }, photoOf(l.person),

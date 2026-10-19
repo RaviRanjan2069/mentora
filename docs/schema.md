@@ -45,7 +45,7 @@ What SQL used to enforce is enforced by `mentora/db/store.py`:
 | `accounts` | A person's sign-in identity (D41) | `username` (permanent user id, unique), `email` (unique), `email_verified`, `role`, `name`, `gender`, `password_hash` (scrypt), `session_version`, lockout fields, `learner_id` (the pseudonym) |
 | `account_photos` | Profile photo | `_id` = account id, small JPEG/PNG/WebP bytes, `content_type` |
 | `teacher_links` | Student → teacher requests | `student_id`, `teacher_id`, `status` ∈ {pending, accepted, declined}; unique pair |
-| `class_codes` | A teacher's permanent class code | `_id` = the code (upper case, unique), `teacher_id` (one code per teacher) |
+| `class_codes` | A teacher's permanent class code, given at sign-up | `_id` = the code (10 random digits, unique), `teacher_id` (one code per teacher), `teacher_username`, `teacher_name` (copies for reading the data) |
 | `email_tokens` | One-time email links | `_id` = sha256 of the token, `purpose` ∈ {verify, reset}, `expires_at`, `used` |
 | `counters`, `meta` | Integer id sequences; schema version | |
 

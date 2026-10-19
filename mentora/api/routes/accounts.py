@@ -142,6 +142,8 @@ class SignupIn(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     gender: Gender = "prefer_not_to_say"
     teacher_code: str = Field(default="", max_length=200)
+    # The class code the sign-up form suggested (teachers); empty: a random one.
+    class_code: str = Field(default="", max_length=20)
     accept_privacy: bool
 
 
@@ -190,6 +192,13 @@ def request_teacher_code(body: TeacherCodeRequestIn, request: Request) -> dict[s
     return {"sent": True}
 
 
+@router.get("/auth/class-code-suggestion")
+def class_code_suggestion(request: Request, db: Db) -> dict[str, str]:
+    """A free random class code for the teacher sign-up form."""
+    _limit(request, "login")
+    return {"code": acc.free_class_code(db)}
+
+
 @router.get("/auth/username-available")
 def username_available(username: str, request: Request, db: Db) -> dict[str, Any]:
     _limit(request, "login")
@@ -219,6 +228,13 @@ def signup(body: SignupIn, request: Request, db: Db) -> dict[str, Any]:
             raise HTTPException(
                 403, "The teacher code is not right. Ask the Mentora administrator."
             )
+    class_code = ""
+    if body.role == "teacher" and body.class_code.strip():
+        class_code = "".join(body.class_code.split())
+        if not acc.is_new_class_code(class_code):
+            raise HTTPException(422, "The class code must be 10 digits.")
+        if db.get(m.ClassCode, class_code) is not None:
+            raise HTTPException(409, "That class code was just taken. Please take a new one.")
     if acc.username_taken(db, username):
         raise HTTPException(409, "That user id is taken. Please choose another.")
     if db.count(m.Account, {"email": email}):
@@ -239,15 +255,22 @@ def signup(body: SignupIn, request: Request, db: Db) -> dict[str, Any]:
         account.learner_id = acc.learner_pseudonym(account.id, s.pseudonym_salt.get_secret_value())
         db.add(m.Learner(id=account.learner_id, gender=body.gender))
     db.add(account)
+    if body.role == "teacher":
+        acc.give_class_code(db, account, class_code or None)
     try:
         db.flush()
-    except IntegrityError as exc:  # a parallel sign-up took the user id or email
+    except IntegrityError as exc:  # a parallel sign-up took the user id, email or class code
         raise HTTPException(409, "That user id or email was just taken. Please try again.") from exc
     db.commit()
     sent = _send_verification(request, db, account) if mailer.configured else False
     db.commit()
     _sign_in(request, account)
-    return {"profile": profile_of(db, account), "verification_sent": sent}
+    code_row = db.find_one(m.ClassCode, {"teacher_id": account.id})
+    return {
+        "profile": profile_of(db, account),
+        "verification_sent": sent,
+        "class_code": code_row.id if code_row else None,
+    }
 
 
 class LoginIn(BaseModel):
@@ -381,6 +404,7 @@ class ProfileIn(BaseModel):
 def update_profile(body: ProfileIn, request: Request, user: Me, db: Db) -> ProfileOut:
     account = _account(db, user)
     account.name, account.gender = body.name.strip(), body.gender
+    db.update_many(m.ClassCode, {"teacher_id": account.id}, {"teacher_name": account.name})
     if account.learner_id and (learner := db.get(m.Learner, account.learner_id)):
         learner.gender = body.gender
     db.commit()
@@ -678,41 +702,18 @@ class ClassCodeOut(BaseModel):
     code: str | None
 
 
-class ClassCodeIn(BaseModel):
-    code: str = Field(min_length=1, max_length=40)
-
-
 @router.get("/teacher/class-code")
 def get_class_code(user: Teacher, db: Db) -> ClassCodeOut:
-    row = db.find_one(m.ClassCode, {"teacher_id": _account(db, user).id})
-    return ClassCodeOut(code=row.id if row else None)
-
-
-@router.put("/teacher/class-code")
-def set_class_code(body: ClassCodeIn, user: Teacher, db: Db) -> ClassCodeOut:
-    """Choose or change the code; the previous code stops working."""
+    """The code is given at sign-up and never changes; teachers from before get one now."""
+    if user.account_id is None:
+        return ClassCodeOut(code=None)  # signed in without an account (Moodle, dev)
     account = _account(db, user)
-    try:
-        code = acc.normalize_class_code(body.code)
-    except AccountError as exc:
-        raise HTTPException(422, str(exc)) from exc
-    current = db.find_one(m.ClassCode, {"teacher_id": account.id})
-    if current is not None and current.id == code:
-        return ClassCodeOut(code=code)
-    owner = db.get(m.ClassCode, code)
-    if owner is not None:
-        raise HTTPException(409, "Another class already uses that code. Please choose another.")
-    if current is not None:
-        db.delete(current)
-    db.add(m.ClassCode(id=code, teacher_id=account.id))
-    try:
-        db.commit()
-    except IntegrityError as exc:  # two saves at once
-        raise HTTPException(409, "That code was just taken. Please choose another.") from exc
-    return ClassCodeOut(code=code)
-
-
-@router.delete("/teacher/class-code", status_code=204)
-def remove_class_code(user: Teacher, db: Db) -> None:
-    db.delete_many(m.ClassCode, {"teacher_id": _account(db, user).id})
-    db.commit()
+    row = db.find_one(m.ClassCode, {"teacher_id": account.id})
+    if row is None:
+        row = acc.give_class_code(db, account)
+        try:
+            db.commit()
+        except IntegrityError:  # two first visits at once
+            db.rollback()
+            row = db.find_one(m.ClassCode, {"teacher_id": account.id})
+    return ClassCodeOut(code=row.id if row else None)

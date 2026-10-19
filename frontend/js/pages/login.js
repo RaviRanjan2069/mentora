@@ -67,7 +67,7 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
     mode: initialMode, busy: false, error: null, done: null, options: { dev_login: false, email: false, teacher_signup: true },
     login: "", password: "", role: "learner", name: "", username: "", email: "", password2: "",
     gender: "prefer_not_to_say", teacherCode: "", accept: false, userCheck: null, devName: "", devRole: "learner", devCode: "",
-    ask: { open: false, message: "", busy: false, error: null, done: false },
+    ask: { open: false, message: "", busy: false, error: null, done: false }, classCode: "",
   };
   let checkTimer = 0;
 
@@ -109,13 +109,38 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
       const r = await api.post("/api/auth/signup", {
         role: st.role, username: st.username.trim(), email: st.email.trim(), password: st.password,
         name: st.name.trim(), gender: st.gender, teacher_code: st.role === "teacher" ? st.teacherCode : "",
+        class_code: st.role === "teacher" ? st.classCode : "",
         accept_privacy: st.accept,
+      }).catch((err) => {
+        if (st.role === "teacher" && /class code/.test(errorText(err))) suggestCode(true);
+        throw err;
       });
+      if (r.class_code) toast(`Welcome! Your permanent class code is ${r.class_code}.`);
       if (r.verification_sent) toast(`We sent a confirmation link to ${st.email.trim()}.`);
       window.location.hash = st.role === "teacher" ? "#/teacher" : "#/";
       onSignedIn();
     });
   };
+
+  async function suggestCode(again = false) {
+    if (st.classCode && !again) return;
+    try {
+      st.classCode = (await api.get("/api/auth/class-code-suggestion")).code;
+    } catch {
+      st.classCode = "";  // the server picks one at sign-up
+    }
+    paint();
+  }
+
+  function classCodeField() {
+    return h("div", { class: "field class-code-field" },
+      h("span", null, "Your class code"),
+      h("div", { class: "class-code-pick" },
+        h("span", { class: "class-code", "data-class-code": "" }, st.classCode || "…"),
+        h("button", { type: "button", class: "btn small", onClick: () => suggestCode(true) }, icon("sparkle"), " Another code")),
+      h("div", { class: "hint" },
+        "Your students type this code to ask to join your class. It becomes permanent when you create your account."));
+  }
 
   async function askForCode() {
     const ask = st.ask;
@@ -258,7 +283,7 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
       h("div", { class: "role-pick", role: "radiogroup", "aria-label": "Role" },
         [["learner", "user", "Student"], ["teacher", "users", "Teacher"]].map(([r, name, label]) => h(
           "label", { class: st.role === r ? "on" : "" },
-          h("input", { type: "radio", name: "role", checked: st.role === r, onChange: () => { st.role = r; paint(); } }),
+          h("input", { type: "radio", name: "role", checked: st.role === r, onChange: () => { st.role = r; if (r === "teacher") suggestCode(); paint(); } }),
           icon(name), " ", label))),
       text("name", "Full name", { autocomplete: "name", required: true, maxlength: "80" }),
       h("label", { class: "field" },
@@ -295,6 +320,7 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
             h("div", { class: "hint" }, "Teacher accounts need the code from the Mentora administrator."))
         : null,
       st.role === "teacher" ? askCodePanel() : null,
+      st.role === "teacher" ? classCodeField() : null,
       h("label", { class: "check-line" },
         h("input", { type: "checkbox", checked: st.accept, onChange: (e) => { st.accept = e.target.checked; } }),
         h("span", null,

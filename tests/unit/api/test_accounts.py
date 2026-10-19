@@ -293,47 +293,70 @@ def test_deleting_an_account_removes_everything(app: FastAPI, mail: OutboxMailer
         assert db.count(m.Event, {"learner_id": learner_id}) == 0
 
 
-def test_teacher_class_code_sends_a_request(app: FastAPI, mail: OutboxMailer) -> None:
-    t1 = signup(app, "dr.code", role="teacher")
-    t2 = signup(app, "dr.other", role="teacher")
+def test_teacher_gets_a_permanent_class_code(app: FastAPI, mail: OutboxMailer) -> None:
+    suggested = TestClient(app).get("/api/auth/class-code-suggestion").json()["code"]
+    assert acc.is_new_class_code(suggested)
+    t1 = signup(app, "dr.code", role="teacher", class_code=suggested)
+    t2 = signup(app, "dr.other", role="teacher")  # no suggestion sent: a random one
     student = signup(app, "kid")
     for c, name in ((t1, "dr.code"), (t2, "dr.other"), (student, "kid")):
         verify(app, c, mail, f"{name}@example.com")
-    assert t1.get("/api/teacher/class-code").json() == {"code": None}
-    assert t1.put("/api/teacher/class-code", json={"code": "a b"}).status_code == 422
-    assert t1.put("/api/teacher/class-code", json={"code": "rao-python"}).json() == {
-        "code": "RAO-PYTHON"
-    }
-    assert t2.put("/api/teacher/class-code", json={"code": "RAO-python"}).status_code == 409
-    assert student.put("/api/teacher/class-code", json={"code": "MINE1"}).status_code == 403
+    assert t1.get("/api/teacher/class-code").json() == {"code": suggested}
+    other_code = t2.get("/api/teacher/class-code").json()["code"]
+    assert acc.is_new_class_code(other_code) and other_code != suggested
+    with app.state.session_factory() as db:
+        row = db.get(m.ClassCode, suggested)
+        assert row is not None
+        assert (row.teacher_username, row.teacher_name) == ("dr.code", "Dr.Code")
 
-    assert student.post("/api/me/teachers/join", json={"code": "nope-123"}).status_code == 404
-    link = student.post("/api/me/teachers/join", json={"code": " rao-Python "}).json()
+    # permanent: no way to change or remove it
+    assert t1.put("/api/teacher/class-code", json={"code": "1234567890"}).status_code == 405
+    assert t1.delete("/api/teacher/class-code").status_code == 405
+    assert student.get("/api/teacher/class-code").status_code == 403
+
+    # a taken or malformed code at sign-up is refused
+    c = TestClient(app)
+    base = {
+        "role": "teacher",
+        "username": "dr.late",
+        "email": "late@example.com",
+        "password": "correct horse 42",
+        "name": "Late",
+        "teacher_code": CODE,
+        "accept_privacy": True,
+    }
+    assert c.post("/api/auth/signup", json={**base, "class_code": suggested}).status_code == 409
+    assert c.post("/api/auth/signup", json={**base, "class_code": "12AB"}).status_code == 422
+
+    # renaming the teacher updates the copy kept with the code
+    t1.patch("/api/me/profile", json={"name": "Dr. Code Rao", "gender": "male"})
+    with app.state.session_factory() as db:
+        row = db.get(m.ClassCode, suggested)
+        assert row is not None and row.teacher_name == "Dr. Code Rao"
+
+    # students join with it (spaces allowed); the teacher still accepts
+    assert student.post("/api/me/teachers/join", json={"code": "9999999999"}).status_code == 404
+    spaced = f"{suggested[:5]} {suggested[5:]}"
+    link = student.post("/api/me/teachers/join", json={"code": spaced}).json()
     assert link["status"] == "pending" and link["person"]["username"] == "dr.code"
-    assert student.post("/api/me/teachers/join", json={"code": "RAO-PYTHON"}).status_code == 409
+    assert student.post("/api/me/teachers/join", json={"code": suggested}).status_code == 409
     assert t1.post(f"/api/teacher/requests/{link['id']}", json={"accept": True}).status_code == 200
 
-    # changing the code retires the old one
-    assert t1.put("/api/teacher/class-code", json={"code": "RAO-2027"}).json() == {
-        "code": "RAO-2027"
-    }
-    other = signup(app, "kid2")
-    verify(app, other, mail, "kid2@example.com")
-    assert other.post("/api/me/teachers/join", json={"code": "RAO-PYTHON"}).status_code == 404
-    assert other.post("/api/me/teachers/join", json={"code": "rao-2027"}).status_code == 201
-    assert (
-        t2.put("/api/teacher/class-code", json={"code": "RAO-PYTHON"}).status_code == 200
-    )  # now free
 
-    assert t1.delete("/api/teacher/class-code").status_code == 204
-    assert t1.get("/api/teacher/class-code").json() == {"code": None}
-    with app.state.session_factory() as db:
-        assert db.count(m.ClassCode, {"id": "RAO-2027"}) == 0
+def test_teacher_without_a_code_gets_one(app: FastAPI, mail: OutboxMailer) -> None:
+    t = signup(app, "dr.old", role="teacher")
+    with app.state.session_factory() as db:  # a teacher from before codes were given at sign-up
+        db.delete_many(m.ClassCode, {})
+        db.commit()
+    code = t.get("/api/teacher/class-code").json()["code"]
+    assert acc.is_new_class_code(code)
+    assert t.get("/api/teacher/class-code").json()["code"] == code
 
 
 def test_deleting_a_teacher_removes_their_code(app: FastAPI, mail: OutboxMailer) -> None:
     t = signup(app, "dr.gone", role="teacher")
-    t.put("/api/teacher/class-code", json={"code": "GONE-1"})
+    with app.state.session_factory() as db:
+        assert db.count(m.ClassCode) == 1
     assert (
         t.post("/api/me/account/delete", json={"password": "correct horse 42"}).status_code == 204
     )

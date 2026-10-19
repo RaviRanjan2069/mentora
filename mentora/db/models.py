@@ -385,7 +385,8 @@ class TeacherLink(Document):
 
 @dataclass(kw_only=True)
 class ClassCode(Document):
-    """A teacher's permanent class code; students enter it to ask to join (one per teacher)."""
+    """A teacher's permanent class code, given at sign-up (10 random digits; older codes may
+    be words); students enter it to ask to join. One per teacher, never changed."""
 
     __collection__ = "class_codes"  # unique teacher_id
     __id_kind__: ClassVar[IdKind] = "given"
@@ -393,6 +394,9 @@ class ClassCode(Document):
 
     id: str  # the code, upper case
     teacher_id: str
+    # Copies kept for reading the collection directly (the account is the source of truth).
+    teacher_username: str = ""
+    teacher_name: str = ""
     created_at: datetime = field(default_factory=now)
 
     def validate(self) -> None:
