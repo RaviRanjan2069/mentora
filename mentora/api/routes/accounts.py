@@ -401,8 +401,14 @@ def _may_see(db: Store, viewer: User, owner: m.Account) -> bool:
         return True
     if viewer.account_id is None:
         return viewer.role == "teacher"  # Moodle / development teachers see everyone
-    if owner.role == "teacher" and viewer.role == "learner":
-        return True  # students may look teachers up
+    if owner.role == "teacher":
+        return True  # teachers are shown on their subject folders
+    if viewer.role == "teacher":
+        folders = [fid for (fid,) in db.values(m.Folder, ["id"], {"teacher_id": viewer.account_id})]
+        if folders and db.count(
+            m.Enrollment, {"folder_id": {"$in": folders}, "student_id": owner.id}
+        ):
+            return True  # a student enrolled in one of the teacher's folders
     pair = (
         {"student_id": viewer.account_id, "teacher_id": owner.id}
         if viewer.role == "learner"

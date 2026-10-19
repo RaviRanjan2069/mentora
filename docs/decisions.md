@@ -287,3 +287,24 @@ Each teacher gets one permanent class code at sign-up: 10 random digits, suggest
 with the teacher's user id and name. Teachers from before this get one on first visit; earlier
 word codes keep working. A student who enters it sends the same request as searching by
 user id, so the teacher still accepts; code attempts are rate-limited against guessing.
+
+## D42 — Subjects with teachers' folders, material and quizzes
+
+Mentora is organised by subject (Java, Python, DBMS, Machine Learning, ...). A teacher opens one
+folder per subject ("Java by Dr. Ravi Singh"), picking a subject from the list or adding a new
+one (names that differ only in capitals or spaces are the same subject). Students enrol in any
+folder with one click, and the teacher can remove them. A folder holds material (uploaded files,
+links, typed notes) and quizzes; only its teacher and enrolled students can open them.
+Uploaded files are stored in MongoDB in 1 MB chunks, up to 10 MB each and 300 MB in total
+(`subjects.*` settings), because Atlas M0 holds 512 MB for everything and Render's free disk is
+wiped on every deploy; bigger material goes in as a link. File types are checked against the
+file's first bytes and served with `nosniff` and a sandbox CSP.
+Quizzes have single-answer, multiple-answer, true/false and short typed questions, each with
+points and a topic. Grading is all or nothing per question; short answers ignore capitals,
+spacing and surrounding punctuation. A quiz can have a time limit (answers after it plus a minute
+are still graded but marked late), several attempts, and can show the right answers after
+submitting. Once a student has taken a quiz its questions are frozen, so results stay comparable.
+The analysis uses each student's best attempt per quiz; topics at 75% or more are strengths,
+below 50% weaknesses. The AI tutor still works on the existing course; tying it to each
+folder's material is later work.
+

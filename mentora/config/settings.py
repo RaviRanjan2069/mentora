@@ -222,6 +222,11 @@ class AccountSettings(BaseModel):
     email_per_hour: int = Field(gt=0)
 
 
+class SubjectSettings(BaseModel):
+    file_max_mb: float = Field(gt=0)
+    storage_total_mb: float = Field(gt=0)
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="MENTORA_",
@@ -268,6 +273,7 @@ class Settings(BaseSettings):
     rag: RagSettings
     memory: MemorySettings
     jobs: JobSettings
+    subjects: SubjectSettings
     safety: SafetySettings
     agents: AgentSettings
     learner_model: LearnerModelSettings

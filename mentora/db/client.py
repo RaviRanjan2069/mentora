@@ -80,6 +80,34 @@ INDEXES: dict[str, list[IndexModel]] = {
     "class_codes": [
         IndexModel([("teacher_id", ASCENDING)], unique=True, name="uq_class_codes_teacher")
     ],
+    "subjects": [IndexModel([("key", ASCENDING)], unique=True, name="uq_subjects_key")],
+    "folders": [
+        IndexModel(
+            [("subject_id", ASCENDING), ("teacher_id", ASCENDING)],
+            unique=True,
+            name="uq_folders_subject_teacher",
+        ),
+        IndexModel([("teacher_id", ASCENDING)], name="ix_folders_teacher"),
+    ],
+    "enrollments": [
+        IndexModel(
+            [("folder_id", ASCENDING), ("student_id", ASCENDING)],
+            unique=True,
+            name="uq_enrollments_pair",
+        ),
+        IndexModel([("student_id", ASCENDING)], name="ix_enrollments_student"),
+    ],
+    "resources": [IndexModel([("folder_id", ASCENDING)], name="ix_resources_folder")],
+    "resource_chunks": [
+        IndexModel([("resource_id", ASCENDING), ("n", ASCENDING)], name="ix_chunks_resource")
+    ],
+    "quizzes": [IndexModel([("folder_id", ASCENDING)], name="ix_quizzes_folder")],
+    "quiz_attempts": [
+        IndexModel(
+            [("quiz_id", ASCENDING), ("student_id", ASCENDING)], name="ix_attempts_quiz_student"
+        ),
+        IndexModel([("student_id", ASCENDING)], name="ix_attempts_student"),
+    ],
 }
 
 _MOCK_CLIENTS: dict[str, Any] = {}

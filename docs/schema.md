@@ -46,6 +46,13 @@ What SQL used to enforce is enforced by `mentora/db/store.py`:
 | `account_photos` | Profile photo | `_id` = account id, small JPEG/PNG/WebP bytes, `content_type` |
 | `teacher_links` | Student → teacher requests | `student_id`, `teacher_id`, `status` ∈ {pending, accepted, declined}; unique pair |
 | `class_codes` | A teacher's permanent class code, given at sign-up | `_id` = the code (10 random digits, unique), `teacher_id` (one code per teacher), `teacher_username`, `teacher_name` (copies for reading the data) |
+| `subjects` | Subjects such as Java or DBMS (D42) | `key` (lower case name, unique), `name`, `created_by` (account id, or none for the starting list) |
+| `folders` | One teacher's folder for one subject | `subject_id`, `teacher_id` (unique together), `about` |
+| `enrollments` | A student enrolled in a folder | `folder_id`, `student_id` (unique together) |
+| `resources` | Material in a folder | `folder_id`, `kind` (file, link, note), `title`, `description`, `url`, `text`, `file_name`, `content_type`, `size` |
+| `resource_chunks` | Parts of an uploaded file (1 MB each) | `_id` = `<resource id>:<n>`, `resource_id`, `n`, `data` |
+| `quizzes` | A teacher's quiz | `folder_id`, `title`, `questions` (embedded: id, kind, text, options, answer, points, topic), `time_limit_min`, `max_attempts`, `show_answers`, `published` |
+| `quiz_attempts` | A student's attempt | `quiz_id`, `student_id`, `answers`, `results`, `score`, `max_score`, `started_at`, `submitted_at`, `late` |
 | `email_tokens` | One-time email links | `_id` = sha256 of the token, `purpose` ∈ {verify, reset}, `expires_at`, `used` |
 | `counters`, `meta` | Integer id sequences; schema version | |
 

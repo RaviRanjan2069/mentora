@@ -202,3 +202,7 @@ accounts:
   signup_per_hour: 10        # per client IP
   login_per_10_minutes: 30   # per client IP
   email_per_hour: 6          # verification / reset emails per client IP
+
+subjects:
+  file_max_mb: 10            # largest upload; bigger material goes in as a link
+  storage_total_mb: 300      # all uploads together (MongoDB Atlas M0 holds 512 MB in total)

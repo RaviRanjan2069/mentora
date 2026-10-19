@@ -24,10 +24,12 @@ import reports from "./pages/reports.js";
 import profile from "./pages/profile.js";
 import teachers from "./pages/teachers.js";
 import myStudents from "./pages/my_students.js";
+import subjects from "./pages/subjects.js";
 import { photoOf } from "./people.js";
 
 const STUDENT = [
   { path: "/", label: "Home", icon: "home", title: "", sub: "", page: home },
+  { path: "/subjects", label: "Subjects", icon: "layers", title: "Subjects", sub: "Choose a subject and teacher, read their material and take their quizzes", page: subjects },
   { path: "/tutor", label: "AI Tutor", icon: "bot", title: "AI Tutor", sub: "Plan · Learn · Reflect · Improve", page: tutor },
   { path: "/learning", label: "My Learning", icon: "book", title: "My Learning", sub: "Your goals, plans, tutor suggestions and what Mentora remembers", page: learning },
   { path: "/practice", label: "Practice", icon: "practice", title: "Practice Questions", sub: "Test your understanding and get feedback", page: practice },
@@ -40,6 +42,7 @@ const STUDENT = [
 
 const TEACHER = [
   { path: "/teacher", label: "Teacher Console", icon: "layers", title: "Teacher Console", sub: "Monitor student progress and manage the AI tutor", page: overview },
+  { path: "/teacher/subjects", label: "Subjects", icon: "book", title: "Subjects", sub: "Your subject folders: material, quizzes and student performance", page: subjects },
   { path: "/teacher/my-students", label: "My Students", icon: "user", title: "My Students", sub: "Requests to join your class, and your students", page: myStudents },
   { path: "/teacher/escalations", label: "Escalations", icon: "alert", title: "Escalations", sub: "Messages the tutor passed to you", page: escalations },
   { path: "/teacher/students", label: "Students", icon: "users", title: "Students", sub: "Progress and risk, per student (pseudonymous)", page: students },

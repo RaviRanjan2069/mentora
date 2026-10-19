@@ -13,7 +13,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from mentora import __version__
 from mentora.accounts import RateLimiter
 from mentora.api import lti
-from mentora.api.routes import accounts, auth, console, health, learner, rag, teacher
+from mentora.api.routes import accounts, auth, console, health, learner, rag, subjects, teacher
 from mentora.config import Settings, get_settings
 from mentora.db import StoreFactory, connect, ensure_schema
 from mentora.mail import make_mailer
@@ -80,6 +80,7 @@ def create_app(
         rag.router,
         auth.router,
         accounts.router,
+        subjects.router,
         learner.router,
         teacher.router,
         console.router,

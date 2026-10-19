@@ -422,6 +422,136 @@ class EmailToken(Document):
         one_of(self.purpose, ("verify", "reset"), "purpose")
 
 
+# --- subjects: teachers' folders, materials and quizzes (D42) -----------------------------------
+
+SUBJECT = Ref("subjects", "cascade")
+FOLDER = Ref("folders", "cascade")
+RESOURCE = Ref("resources", "cascade")
+QUIZ = Ref("quizzes", "cascade")
+RESOURCE_KINDS = ("file", "link", "note")
+QUESTION_KINDS = ("single", "multiple", "true_false", "short")
+
+
+@dataclass(kw_only=True)
+class Subject(Document):
+    """A subject such as Java or DBMS. Teachers pick one or add a missing one."""
+
+    __collection__ = "subjects"  # unique key
+
+    id: int = 0
+    key: str  # lower case name without extra spaces: "java" (merges "Java" and "java")
+    name: str
+    created_by: str | None = None  # account id; None for the starting list
+    created_at: datetime = field(default_factory=now)
+
+
+@dataclass(kw_only=True)
+class Folder(Document):
+    """One teacher's folder for one subject, e.g. "Java by Dr. Ravi Singh"."""
+
+    __collection__ = "folders"  # unique (subject_id, teacher_id)
+    __refs__: ClassVar[Mapping[str, Ref]] = {"subject_id": SUBJECT, "teacher_id": ACCOUNT}
+
+    id: int = 0
+    subject_id: int
+    teacher_id: str
+    about: str = ""
+    created_at: datetime = field(default_factory=now)
+
+
+@dataclass(kw_only=True)
+class Enrollment(Document):
+    __collection__ = "enrollments"  # unique (folder_id, student_id)
+    __refs__: ClassVar[Mapping[str, Ref]] = {"folder_id": FOLDER, "student_id": ACCOUNT}
+
+    id: int = 0
+    folder_id: int
+    student_id: str
+    created_at: datetime = field(default_factory=now)
+
+
+@dataclass(kw_only=True)
+class Resource(Document):
+    """Study material in a folder: an uploaded file, a link, or a typed note."""
+
+    __collection__ = "resources"
+    __refs__: ClassVar[Mapping[str, Ref]] = {"folder_id": FOLDER}
+
+    id: int = 0
+    folder_id: int
+    kind: str
+    title: str
+    description: str = ""
+    url: str | None = None  # link
+    text: str | None = None  # note
+    file_name: str | None = None  # file
+    content_type: str | None = None
+    size: int = 0  # bytes stored (files)
+    created_at: datetime = field(default_factory=now)
+
+    def validate(self) -> None:
+        one_of(self.kind, RESOURCE_KINDS, "kind")
+
+
+@dataclass(kw_only=True)
+class ResourceChunk(Document):
+    """Part of an uploaded file (files are split so no document nears MongoDB's 16 MB cap)."""
+
+    __collection__ = "resource_chunks"  # (resource_id, n)
+    __id_kind__: ClassVar[IdKind] = "given"
+    __refs__: ClassVar[Mapping[str, Ref]] = {"resource_id": RESOURCE}
+
+    id: str  # "<resource id>:<n>"
+    resource_id: int
+    n: int
+    data: bytes
+
+
+@dataclass(kw_only=True)
+class Quiz(Document):
+    """A teacher's quiz or assessment. Questions are embedded: {id, kind, text, options,
+    answer (option indexes, or accepted texts for short answers), points, topic}."""
+
+    __collection__ = "quizzes"
+    __refs__: ClassVar[Mapping[str, Ref]] = {"folder_id": FOLDER}
+
+    id: int = 0
+    folder_id: int
+    title: str
+    description: str = ""
+    questions: list[dict[str, Any]] = field(default_factory=list)
+    time_limit_min: int | None = None
+    max_attempts: int = 1
+    show_answers: bool = True  # after submitting
+    published: bool = False
+    created_at: datetime = field(default_factory=now)
+    updated_at: datetime = field(default_factory=now)
+
+    def validate(self) -> None:
+        check(self.max_attempts >= 1, "max_attempts must be at least 1")
+        for q in self.questions:
+            one_of(q.get("kind", ""), QUESTION_KINDS, "question kind")
+
+
+@dataclass(kw_only=True)
+class QuizAttempt(Document):
+    """A student's submitted answers. ``results`` holds one {id, correct, points} per question."""
+
+    __collection__ = "quiz_attempts"  # (quiz_id, student_id)
+    __refs__: ClassVar[Mapping[str, Ref]] = {"quiz_id": QUIZ, "student_id": ACCOUNT}
+
+    id: int = 0
+    quiz_id: int
+    student_id: str
+    answers: dict[str, Any] = field(default_factory=dict)
+    results: list[dict[str, Any]] = field(default_factory=list)
+    score: float = 0.0
+    max_score: float = 0.0
+    started_at: datetime = field(default_factory=now)
+    submitted_at: datetime | None = None
+    late: bool = False  # submitted after the time limit
+
+
 MODELS: tuple[type[Document], ...] = (
     Learner,
     Course,
@@ -443,5 +573,12 @@ MODELS: tuple[type[Document], ...] = (
     TeacherLink,
     EmailToken,
     ClassCode,
+    Subject,
+    Folder,
+    Enrollment,
+    Resource,
+    ResourceChunk,
+    Quiz,
+    QuizAttempt,
 )
 BY_COLLECTION: dict[str, type[Document]] = {model.__collection__: model for model in MODELS}
