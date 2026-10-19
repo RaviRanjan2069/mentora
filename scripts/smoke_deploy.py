@@ -67,15 +67,40 @@ def main() -> None:
     hits = anon.get("/api/rag/search", params={"q": "for loop range"}).json()["hits"]
     check("course retrieval returns passages", len(hits) > 0, hits)
 
-    r = learner.post("/api/dev/login", json={"role": "learner", "name": f"Smoke {stamp}"})
-    check("learner dev sign-in", r.status_code == 200, r.text)
+    options = anon.get("/api/auth/options").json()
+    accounts = not options.get("dev_login")  # production: real (throwaway) accounts
+    password = f"Smoke-{stamp}-{time.time_ns() % 10_000}!"
+
+    def sign_up(client: httpx.Client, role: str, user: str, code: str = "") -> httpx.Response:
+        return client.post(
+            "/api/auth/signup",
+            json={
+                "role": role,
+                "username": user,
+                "email": f"{user}@example.com",
+                "password": password,
+                "name": f"Smoke {role}",
+                "teacher_code": code,
+                "accept_privacy": True,
+            },
+        )
+
+    if accounts:
+        r = sign_up(learner, "learner", f"smoke.s{stamp}")
+        check("student account sign-up", r.status_code == 201, r.text)
+        check(
+            "teacher sign-up without code is refused",
+            sign_up(anon, "teacher", f"smoke.x{stamp}").status_code == 403,
+        )
+    else:
+        r = learner.post("/api/dev/login", json={"role": "learner", "name": f"Smoke {stamp}"})
+        check("learner dev sign-in", r.status_code == 200, r.text)
+        nocode = anon.post("/api/dev/login", json={"role": "teacher", "name": "x"}).status_code
+        if args.teacher_code:
+            check("teacher sign-in without code is refused", nocode == 403, nocode)
     check(
         "learner blocked from teacher API", learner.get("/api/teacher/policies").status_code == 403
     )
-
-    nocode = anon.post("/api/dev/login", json={"role": "teacher", "name": "x"}).status_code
-    if args.teacher_code:
-        check("teacher sign-in without code is refused", nocode == 403, nocode)
 
     sid = ""
 
@@ -134,9 +159,13 @@ def main() -> None:
         check(f"learner GET {path}", learner.get(path).status_code == 200)
 
     def teacher_flow() -> None:
-        body = {"role": "teacher", "name": "Smoke Teacher", "access_code": args.teacher_code}
-        r = teacher.post("/api/dev/login", json=body)
-        check("teacher sign-in with code", r.status_code == 200, r.text)
+        if accounts:
+            r = sign_up(teacher, "teacher", f"smoke.t{stamp}", args.teacher_code)
+            check("teacher account sign-up with code", r.status_code == 201, r.text)
+        else:
+            body = {"role": "teacher", "name": "Smoke Teacher", "access_code": args.teacher_code}
+            r = teacher.post("/api/dev/login", json=body)
+            check("teacher sign-in with code", r.status_code == 200, r.text)
         check("teacher blocked from learner API", teacher.post("/api/sessions").status_code == 403)
         inbox = teacher.get("/api/teacher/escalations", params={"status": "open"}).json()
         mine = [e for e in inbox if e.get("session_id") == sid] or inbox
@@ -160,6 +189,10 @@ def main() -> None:
     step("teacher", teacher_flow)
     if sid:
         check("session ends", learner.post(f"/api/sessions/{sid}/end").is_success)
+    if accounts:  # leave nothing behind
+        for who, client in (("student", learner), ("teacher", teacher)):
+            r = client.post("/api/me/account/delete", json={"password": password})
+            check(f"throwaway {who} account deleted", r.status_code in (204, 401), r.text)
 
     print(f"\n{len(FAILURES)} failure(s)" + (": " + ", ".join(FAILURES) if FAILURES else ""))
     sys.exit(1 if FAILURES else 0)
