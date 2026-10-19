@@ -6,7 +6,7 @@ from __future__ import annotations
 import csv
 import io
 import random
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
@@ -621,3 +621,219 @@ def folder_practice(folder_id: int, user: Teacher, db: Db) -> dict[str, Any]:
         )
     class_prog = pr.subject_progress(rounds)
     return {"topics": class_prog["topics"], "students": rows}
+
+
+# --- the Progress page --------------------------------------------------------------------------
+
+
+def _pct(right: int, answered: int) -> float | None:
+    return round(right / answered, 3) if answered else None
+
+
+@router.get("/progress/overview")
+def progress_overview(user: Learner, db: Db, days: int = 30, tz: int = 0) -> dict[str, Any]:
+    """Real performance across all subjects: My Learning answers bucketed by day (or by week for
+    long ranges), per-subject and per-topic results, quiz scores and roadmap progress.
+    ``days`` is the range (0 = everything); ``tz`` the browser's offset from UTC in minutes."""
+    from mentora import roadmaps as rm
+
+    pr.ensure_starter_questions(db)
+    account = _account(db, user)
+    offset = timedelta(minutes=max(-840, min(840, tz)))
+    now = datetime.now(UTC)
+    today = (now + offset).date()
+    names = {s.id: s.name for s in db.find(m.Subject)}
+    rounds = _rounds(db, account.id)
+
+    answers: list[tuple[date, int, str, bool]] = []  # (local day, subject, topic, correct)
+    for r in rounds:
+        for res in r.results:
+            at = res.get("at")
+            if isinstance(at, datetime):
+                at = at if at.tzinfo else at.replace(tzinfo=UTC)
+                answers.append(
+                    ((at + offset).date(), r.subject_id, res["topic"], bool(res["correct"]))
+                )
+    answers.sort(key=lambda a: a[0])
+
+    first = answers[0][0] if answers else today
+    start = first if days <= 0 else max(first, today - timedelta(days=days - 1))
+    weekly = (today - start).days + 1 > 45
+    if weekly:
+        start -= timedelta(days=start.weekday())  # weeks start on Monday
+    step = timedelta(days=7 if weekly else 1)
+    buckets: list[date] = []
+    d = start
+    while d <= today:
+        buckets.append(d)
+        d += step
+
+    def bucket_of(day: date) -> int:
+        return (day - start).days // (7 if weekly else 1)
+
+    in_range = [a for a in answers if a[0] >= start]
+    subjects_seen = sorted({a[1] for a in answers}, key=lambda s: names.get(s, ""))
+    per: dict[int, list[list[int]]] = {s: [[0, 0] for _ in buckets] for s in subjects_seen}
+    overall = [[0, 0] for _ in buckets]
+    for day, sid, _topic, ok in in_range:
+        i = bucket_of(day)
+        if 0 <= i < len(buckets):
+            per[sid][i][0] += 1
+            per[sid][i][1] += ok
+            overall[i][0] += 1
+            overall[i][1] += ok
+
+    # running accuracy: where you stand overall at the end of each day / week
+    seen_n = sum(1 for a in answers if a[0] < start)
+    seen_ok = sum(a[3] for a in answers if a[0] < start)
+    running = []
+    for cell in overall:
+        seen_n += cell[0]
+        seen_ok += cell[1]
+        running.append(_pct(seen_ok, seen_n))
+
+    def window(sid: int, lo: int, hi: int) -> float | None:
+        rows = [a for a in answers if a[1] == sid and lo <= (today - a[0]).days < hi]
+        return _pct(sum(a[3] for a in rows), len(rows))
+
+    subject_rows: list[dict[str, Any]] = []
+    for sid in subjects_seen:
+        rows = [a for a in answers if a[1] == sid]
+        stats = pr.topic_stats({"topic": a[2], "correct": a[3]} for a in rows)
+        topics = sorted(
+            (
+                {
+                    "topic": s.topic,
+                    "answered": s.answered,
+                    "accuracy": _pct(s.right, s.answered),
+                    "label": pr.label(s),
+                }
+                for s in stats.values()
+            ),
+            key=lambda t: t["accuracy"] or 0.0,
+        )
+        recent, previous = window(sid, 0, 7), window(sid, 7, 14)
+        subject_rows.append(
+            {
+                "id": sid,
+                "name": names.get(sid, "?"),
+                "answered": len(rows),
+                "accuracy": _pct(sum(a[3] for a in rows), len(rows)),
+                "rounds": sum(
+                    1 for r in rounds if r.subject_id == sid and r.finished_at is not None
+                ),
+                "last_practised": max(a[0] for a in rows).isoformat(),
+                "change": round(recent - previous, 3)
+                if recent is not None and previous is not None
+                else None,
+                "spark": [_pct(c[1], c[0]) for c in per[sid]],
+                "topics": topics,
+                "strongest": [t["topic"] for t in topics if t["label"] == "strong"][::-1][:3],
+                "weakest": [t["topic"] for t in topics if t["label"] == "weak"][:3],
+            }
+        )
+
+    # study streak: days in a row with answers, ending today (or yesterday)
+    days_with = {a[0] for a in answers}
+    streak = 0
+    d = today if today in days_with else today - timedelta(days=1)
+    while d in days_with:
+        streak += 1
+        d -= timedelta(days=1)
+
+    attempts = db.find(
+        m.QuizAttempt,
+        {"student_id": account.id, "submitted_at": {"$ne": None}},
+        sort=[("submitted_at", -1)],
+    )
+    quiz_titles = {
+        q.id: q.title for q in db.find(m.Quiz, {"id": {"$in": list({a.quiz_id for a in attempts})}})
+    }
+    quiz_pcts = [a.score / a.max_score for a in attempts if a.max_score]
+
+    maps = []
+    for rmap in db.find(m.Roadmap, {"student_id": account.id, "status": {"$ne": "archived"}}):
+        s = rm.summary(rmap, now)
+        maps.append(
+            {
+                "id": rmap.id,
+                "goal": rmap.goal,
+                "subject": rmap.subject,
+                "percent": s["percent"],
+                "week": s["current_week"],
+                "weeks": s["weeks_total"],
+                "status": rmap.status,
+            }
+        )
+
+    finished = sorted(
+        (r for r in rounds if r.finished_at is not None),
+        key=lambda r: r.finished_at or r.started_at,
+        reverse=True,
+    )
+    activity: list[dict[str, Any]] = [
+        {
+            "kind": "round",
+            "at": r.finished_at,
+            "title": names.get(r.subject_id, "Practice") + " practice",
+            "score": r.score,
+            "total": r.total,
+            "id": r.id,
+        }
+        for r in finished[:8]
+    ]
+    activity += [
+        {
+            "kind": "quiz",
+            "at": a.submitted_at,
+            "title": quiz_titles.get(a.quiz_id, "Quiz"),
+            "score": a.score,
+            "total": a.max_score,
+            "id": a.id,
+        }
+        for a in attempts[:8]
+    ]
+    activity.sort(key=lambda x: x["at"], reverse=True)
+
+    all_topics = [
+        {**t, "subject": s["name"]}
+        for s in subject_rows
+        for t in s["topics"]
+        if t["answered"] >= pr.MIN_EVIDENCE
+    ]
+    in_range_ok = sum(a[3] for a in in_range)
+    return {
+        "range_days": days,
+        "granularity": "week" if weekly else "day",
+        "labels": [b.isoformat() for b in buckets],
+        "totals": {
+            "answered": len(answers),
+            "accuracy": _pct(sum(a[3] for a in answers), len(answers)),
+            "answered_in_range": len(in_range),
+            "accuracy_in_range": _pct(in_range_ok, len(in_range)),
+            "rounds": len(finished),
+            "study_days": len(days_with),
+            "streak": streak,
+            "subjects": len(subjects_seen),
+            "quizzes": len(attempts),
+            "quiz_average": round(sum(quiz_pcts) / len(quiz_pcts), 3) if quiz_pcts else None,
+        },
+        "series": {
+            "overall": [_pct(c[1], c[0]) for c in overall],
+            "running": running,
+            "answered": [c[0] for c in overall],
+            "subjects": [
+                {
+                    "id": sid,
+                    "name": names.get(sid, "?"),
+                    "values": [_pct(c[1], c[0]) for c in per[sid]],
+                }
+                for sid in subjects_seen
+            ],
+        },
+        "subjects": subject_rows,
+        "focus": sorted(all_topics, key=lambda t: t["accuracy"] or 0.0)[:6],
+        "strong": sorted(all_topics, key=lambda t: -(t["accuracy"] or 0.0))[:6],
+        "roadmaps": maps,
+        "activity": activity[:10],
+    }

@@ -38,7 +38,7 @@ const STUDENT = [
   { path: "/practice", label: "Practice", icon: "practice", title: "Practice Questions", sub: "Test your understanding and get feedback", page: practice, hidden: true },
   // Not in the menu: opened from the tutor's source links and Home suggestions.
   { path: "/resources", label: "Resources", icon: "folder", title: "Course notes", sub: "The passage the tutor used", page: resources, hidden: true },
-  { path: "/progress", label: "Progress", icon: "trend", title: "Progress", sub: "Mastery by concept and how well your confidence matches your results", page: progress },
+  { path: "/progress", label: "Progress", icon: "trend", title: "Progress", sub: "Your real performance across all subjects", page: progress },
   { path: "/teachers", label: "My Teachers", icon: "users", title: "My Teachers", sub: "Join your teacher's class with a class code or their user id", page: teachers },
   { path: "/profile", label: "Profile", icon: "user", title: "Profile", sub: "Your photo, details, password and account", page: profile },
   { path: "/settings", label: "Settings", icon: "settings", title: "Settings", sub: "Appearance, privacy and your data", page: settings },

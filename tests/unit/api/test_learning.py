@@ -81,6 +81,18 @@ def test_student_practice_round_and_progress(app: FastAPI) -> None:
     assert overall["answered"] == 10 and overall["subjects"][0]["name"] == "Java"
     assert len(overall["timeline"]) == 1
 
+    # the Progress page: real numbers, per day and per subject
+    prog = asha.get("/api/progress/overview", params={"days": 7, "tz": 330}).json()
+    assert prog["totals"]["answered"] == 10 and prog["totals"]["accuracy"] == 0.9
+    assert prog["totals"]["streak"] == 1 and prog["granularity"] == "day"
+    assert len(prog["labels"]) == len(prog["series"]["overall"]) == 1
+    assert prog["series"]["overall"][-1] == 0.9 and prog["series"]["answered"][-1] == 10
+    assert prog["subjects"][0]["name"] == "Java" and prog["subjects"][0]["answered"] == 10
+    assert prog["series"]["subjects"][0]["values"][-1] == 0.9
+    assert prog["activity"][0]["kind"] == "round" and prog["activity"][0]["score"] == 9
+    empty = signup(app, "nobody").get("/api/progress/overview").json()
+    assert empty["totals"]["answered"] == 0 and empty["subjects"] == []
+
     # the next round avoids the questions just asked
     nxt = asha.post(f"/api/learning/subjects/{java['id']}/rounds").json()
     assert not {q["id"] for q in nxt["questions"]} & {q["id"] for q in rnd["questions"]}

@@ -346,3 +346,14 @@ the student already masters (80%+ with five or more answers) becomes optional; f
 more weeks behind moves the dates. The page shows roadmaps only; the notes the tutor remembers
 are listed (and can be deleted) in Settings → Privacy, and teacher messages open from the bell.
 
+## D45 — Progress shows real performance across all subjects
+
+The Progress page no longer shows the course-concept mastery and confidence-calibration charts;
+it is built from the student's real results: every My Learning answer (all subjects), quiz
+scores from teachers' folders, and roadmap progress. It shows accuracy, answers, study streak and
+quiz average for a chosen period (7, 30, 90 days or all time); accuracy over time as line graphs
+(all subjects together, and each subject, per day, or per week for long periods, with a running
+average option); answers per day; a subject table with accuracy, a trend sparkline, the change
+over the last 7 days, strongest and weakest topics; topics to focus on (with one-click practice);
+strongest topics; recent activity; and roadmaps. Days are counted in the browser's time zone.
+
