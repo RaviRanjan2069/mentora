@@ -13,7 +13,11 @@ jobs:
         with:
           node-version: "22"   # recognises ES module syntax in .js files
       - name: Syntax-check the web app (plain JavaScript modules, no build)
-        run: for f in $(find frontend/js -name "*.js"); do node --check "$f"; done
+        # parse each file as an ES module (as the browser does); fail on the first bad file
+        run: |
+          for f in $(find frontend/js -name "*.js"); do
+            node --input-type=module --check < "$f" || { echo "Syntax error in $f"; exit 1; }
+          done
 
   checks:
     runs-on: ubuntu-latest

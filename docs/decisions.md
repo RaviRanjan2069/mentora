@@ -397,3 +397,14 @@ borders (no shadows, glows or gradients), square tags, a menu that marks the cur
 rule, figure cards without icon tiles, flat subject marks, and no decorative sparkle icons. Long
 text keeps a readable line length inside the full-width layout.
 
+## D49 — Customer support instead of the sidebar tutor shortcut
+
+The box at the bottom of the menu now opens Customer support (students and teachers) instead of
+the AI tutor (which stays in the menu). Anyone signed in can raise a complaint: what it is about
+(bug, account, wrong question or material, AI tutor answer, teacher or class, other), a title,
+where in Mentora, and what happened. It is saved as a ticket (`support_tickets`, numbered
+MEN-00001...), emailed to the support inbox (`MENTORA_SUPPORT_EMAIL`, default the sender address)
+with the user's email as reply-to so support answers by replying, and confirmed to the user by
+email. The page also shows the support address for writing directly, and the user's own
+complaints with their status. At most 5 complaints an hour per account.
+

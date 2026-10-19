@@ -994,3 +994,20 @@ html { overflow-x: hidden; overflow-y: scroll; }
 .subj-table td .badge, .home-table td .badge, table.data td .badge { white-space: normal; max-width: 100%; text-align: left; }
 .subj-table td:nth-child(6), .subj-table td:nth-child(7) { min-width: 140px; }
 @media (max-width: 1400px) { .subj-table th:nth-child(3), .subj-table td:nth-child(3) { display: none; } }
+
+/* --- customer support ------------------------------------------------------------------------- */
+.support { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(260px, 1fr); gap: 24px; align-items: start; }
+.support-main, .support-side { display: grid; gap: 18px; }
+.topic-pick { display: flex; flex-wrap: wrap; gap: 8px; }
+.topic-pick .pick { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; background: var(--surface-1); font-size: 14px; }
+.topic-pick .pick:hover { border-color: var(--text-muted); }
+.topic-pick .pick.on { border-color: var(--brand); background: var(--brand-soft); color: var(--text-primary); font-weight: 600; }
+.topic-pick input { accent-color: var(--brand); }
+.support-email { font-family: var(--serif); font-size: 19px; margin: 6px 0 14px; overflow-wrap: anywhere; }
+.support-email a { color: var(--text-primary); text-decoration-color: var(--line); }
+.support-steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; color: var(--text-secondary); font-size: 14px; }
+.support-table td.mono { font-family: ui-monospace, Consolas, monospace; font-size: 13px; white-space: nowrap; }
+.support-table td .ellipsis { max-width: 420px; }
+.support-done { align-items: center; }
+.sidebar-cta svg { color: var(--text-secondary); }
+@media (max-width: 1000px) { .support { grid-template-columns: minmax(0, 1fr); } }

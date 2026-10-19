@@ -126,6 +126,11 @@ INDEXES: dict[str, list[IndexModel]] = {
     "chat_threads": [
         IndexModel([("student_id", ASCENDING), ("updated_at", ASCENDING)], name="ix_chats_student")
     ],
+    "support_tickets": [
+        IndexModel(
+            [("account_id", ASCENDING), ("created_at", ASCENDING)], name="ix_support_account"
+        )
+    ],
 }
 
 _MOCK_CLIENTS: dict[str, Any] = {}

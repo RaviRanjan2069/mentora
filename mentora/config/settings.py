@@ -264,6 +264,8 @@ class Settings(BaseSettings):
     brevo_api_key: SecretStr = SecretStr("")
     mail_from: str = ""
     mail_from_name: str = "Mentora"
+    # Where Customer support complaints go. Empty: the sender address (mail_from).
+    support_email: str = ""
     # LTI launches inside a Moodle iframe need SameSite=None + HTTPS cookies.
     cookie_samesite: Literal["lax", "strict", "none"] = "lax"
     cookie_https_only: bool = False

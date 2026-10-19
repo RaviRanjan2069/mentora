@@ -662,6 +662,38 @@ class ChatThread(Document):
     updated_at: datetime = field(default_factory=now)
 
 
+# --- customer support (D49) -----------------------------------------------------------------------
+
+SUPPORT_CATEGORIES = ("bug", "account", "content", "ai_tutor", "teacher", "other")
+
+
+@dataclass(kw_only=True)
+class SupportTicket(Document):
+    """A complaint or problem report raised from the Customer support page; it is also emailed
+    to the Mentora support inbox (reply-to the user)."""
+
+    __collection__ = "support_tickets"  # (account_id, created_at)
+    __refs__: ClassVar[Mapping[str, Ref]] = {"account_id": ACCOUNT}
+
+    id: int = 0
+    account_id: str
+    category: str
+    subject: str
+    message: str
+    page: str = ""  # where in Mentora it happened (optional)
+    status: str = "open"
+    emailed: bool = False
+    created_at: datetime = field(default_factory=now)
+
+    def validate(self) -> None:
+        one_of(self.category, SUPPORT_CATEGORIES, "category")
+        one_of(self.status, ("open", "resolved"), "status")
+
+    @property
+    def number(self) -> str:
+        return f"MEN-{self.id:05d}"
+
+
 MODELS: tuple[type[Document], ...] = (
     Learner,
     Course,
@@ -694,5 +726,6 @@ MODELS: tuple[type[Document], ...] = (
     PracticeRound,
     Roadmap,
     ChatThread,
+    SupportTicket,
 )
 BY_COLLECTION: dict[str, type[Document]] = {model.__collection__: model for model in MODELS}

@@ -26,6 +26,7 @@ import profile from "./pages/profile.js";
 import teachers from "./pages/teachers.js";
 import myStudents from "./pages/my_students.js";
 import subjects from "./pages/subjects.js";
+import support from "./pages/support.js";
 import { photoOf } from "./people.js";
 
 const STUDENT = [
@@ -42,6 +43,8 @@ const STUDENT = [
   { path: "/teachers", label: "My Teachers", icon: "users", title: "My Teachers", sub: "Join your teacher's class with a class code or their user id", page: teachers },
   { path: "/profile", label: "Profile", icon: "user", title: "Profile", sub: "Your photo, details, password and account", page: profile },
   { path: "/settings", label: "Settings", icon: "settings", title: "Settings", sub: "Appearance, privacy and your data", page: settings },
+  // Opened from the Customer support link at the bottom of the menu.
+  { path: "/support", label: "Customer support", icon: "alert", title: "Customer support", sub: "Report a problem or raise a complaint", page: support, hidden: true },
 ];
 
 const TEACHER = [
@@ -56,6 +59,7 @@ const TEACHER = [
   { path: "/teacher/reports", label: "Reports", icon: "file", title: "Reports", sub: "Exports and policy evaluation reports", page: reports },
   { path: "/teacher/profile", label: "Profile", icon: "user", title: "Profile", sub: "Your photo, details, password and account", page: profile },
   { path: "/teacher/settings", label: "Settings", icon: "settings", title: "Settings", sub: "Tutor rules and system information", page: settings },
+  { path: "/teacher/support", label: "Customer support", icon: "alert", title: "Customer support", sub: "Report a problem or raise a complaint", page: support, hidden: true },
 ];
 
 const NOTICE_KEY = "mentora-demo-notice-dismissed";
@@ -299,10 +303,8 @@ function shell(me, signOut) {
       h("button", { class: "search-btn", onClick: palette }, icon("search"), h("span", null, "Search"), h("kbd", null, "Ctrl K")),
       nav,
       h("div", { class: "grow" }),
-      me.role === "learner"
-        ? h("a", { class: "sidebar-cta", href: "#/tutor" }, icon("chat"),
-            h("div", null, h("b", null, "Ask the AI tutor"), h("small", null, "Any question, any subject")))
-        : null,
+      h("a", { class: "sidebar-cta", href: me.role === "teacher" ? "#/teacher/support" : "#/support" }, icon("alert"),
+        h("div", null, h("b", null, "Customer support"), h("small", null, "Report a problem or complaint"))),
       h("button", { class: "nav-item plain", onClick: signOut }, icon("logout"), " Sign out")),
     scrim,
     h("div", { class: "main" },
