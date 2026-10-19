@@ -94,8 +94,12 @@ export function timeAgo(iso) {
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
   if (s < 60) return "just now";
   if (s < 3600) return `${Math.round(s / 60)} min ago`;
-  if (s < 86400) return `${Math.round(s / 3600)} hours ago`;
-  return `${Math.round(s / 86400)} days ago`;
+  if (s < 86400) {
+    const hrs = Math.round(s / 3600);
+    return hrs === 1 ? "1 hour ago" : `${hrs} hours ago`;
+  }
+  const days = Math.round(s / 86400);
+  return days === 1 ? "yesterday" : `${days} days ago`;
 }
 
 export const pct = (v) => (v === null || v === undefined ? "–" : `${Math.round(v * 100)}%`);

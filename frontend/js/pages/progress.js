@@ -11,10 +11,11 @@ const dayLabel = (iso) => {
   const [, mo, d] = iso.split("-").map(Number);
   return `${d} ${MONTHS[mo - 1]}`;
 };
-// distinct colours per subject (the overall line uses the brand blue)
-const PALETTE = ["#e07a2d", "#16a34a", "#9333ea", "#0891b2", "#db2777", "#ca8a04", "#4f46e5", "#dc2626"];
+// Subjects take the validated categorical slots in a fixed order (colour-blind safe for adjacent
+// series, light and dark steps in styles.css); the "All subjects" line is neutral ink.
+const PALETTE = ["--cat-1", "--cat-2", "--cat-3", "--cat-4", "--cat-5", "--cat-6", "--cat-7", "--cat-8"].map((v) => `var(${v})`);
 const colours = new Map();
-const colourOf = (name) => {
+export const colourOf = (name) => {
   if (!colours.has(name)) colours.set(name, PALETTE[colours.size % PALETTE.length]);
   return colours.get(name);
 };
@@ -36,7 +37,7 @@ function savedRange() {
 
 /** A responsive line chart: several series, gaps for missing values, crosshair tooltip,
  * and a table for screen readers. series: [{name, color, values, width?, dash?, area?}] */
-function lineGraph(labels, series, { percent = true, height = 260, width = 920, title = "Chart", xName = "Day" } = {}) {
+export function lineGraph(labels, series, { percent = true, height = 260, width = 920, title = "Chart", xName = "Day" } = {}) {
   const n = labels.length;
   if (!n || !series.some((sr) => sr.values.some((v) => v !== null && v !== undefined))) {
     return h("p", { class: "empty" }, "No answers in this period yet.");
@@ -192,9 +193,9 @@ export default function progress(root) {
     const subjects = d.series.subjects.filter((sr) => !st.hidden.has(sr.id));
     const accSeries = [
       st.mode === "daily"
-        ? { name: "All subjects", color: "var(--brand)", values: d.series.overall, width: 3, area: true }
-        : { name: "Running average", color: "var(--brand)", values: d.series.running, width: 3, area: true },
-      ...subjects.map((sr) => ({ name: sr.name, color: colourOf(sr.name), values: sr.values, width: 1.8, dash: "5 4" })),
+        ? { name: "All subjects", color: "var(--text-primary)", values: d.series.overall, width: 3, area: true }
+        : { name: "Running average", color: "var(--text-primary)", values: d.series.running, width: 3, area: true },
+      ...subjects.map((sr) => ({ name: sr.name, color: colourOf(sr.name), values: sr.values, width: 2 })),
     ];
     render(root, h("div", { class: "stack prog" },
       header(d),

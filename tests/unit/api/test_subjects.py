@@ -181,6 +181,8 @@ def test_quiz_attempts_grading_and_analysis(app: FastAPI) -> None:
     assert asha.get(f"/api/quizzes/{qid}").status_code == 404
     ravi.post(f"/api/quizzes/{qid}", json={"title": "Unit 1", "questions": QUESTIONS,
                                             "max_attempts": 2, "published": True})  # fmt: skip
+    pending = asha.get("/api/me/quizzes/pending").json()
+    assert [(q["title"], q["subject"], q["questions"]) for q in pending] == [("Unit 1", "Java", 4)]
     shown = asha.get(f"/api/quizzes/{qid}").json()
     assert all("answer" not in q for q in shown["questions"]) and shown["attempts_left"] == 2
 
@@ -192,6 +194,7 @@ def test_quiz_attempts_grading_and_analysis(app: FastAPI) -> None:
         json={"answers": {ids[0]: 0, ids[1]: [2, 0], ids[2]: 1, ids[3]: " Extends. "}},
     ).json()
     assert (res["score"], res["max_score"]) == (4, 5)
+    assert asha.get("/api/me/quizzes/pending").json() == []  # taken
     assert [q["correct"] for q in res["questions"]] == [True, True, False, True]
     assert asha.post(f"/api/attempts/{att}/submit", json={"answers": {}}).status_code == 409
     assert bob.get(f"/api/attempts/{att}").status_code == 404

@@ -29,7 +29,7 @@ import subjects from "./pages/subjects.js";
 import { photoOf } from "./people.js";
 
 const STUDENT = [
-  { path: "/", label: "Home", icon: "home", title: "", sub: "", page: home },
+  { path: "/", label: "Home", icon: "home", title: "Home", sub: "Your learning at a glance", page: home },
   { path: "/subjects", label: "Subjects", icon: "layers", title: "Subjects", sub: "Choose a subject and teacher, read their material and take their quizzes", page: subjects },
   { path: "/tutor", label: "AI Tutor", icon: "bot", title: "AI Tutor", sub: "Ask anything", page: tutor, full: true },
   { path: "/learning", label: "My Learning", icon: "book", title: "My Learning", sub: "Practise any subject; questions adapt to the topics you miss most", page: myLearning },

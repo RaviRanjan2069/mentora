@@ -369,3 +369,16 @@ match the distress lexicon are never sent to the model; the student gets the sup
 and an escalation reaches their teachers. While the local model is unreachable the chat says
 it is offline instead of replying with offline templates. 20 messages a minute per student.
 
+## D47 — Home: animated product tour and a dashboard of real numbers
+
+Home opens with a hero: a greeting, three actions (practise, ask the AI tutor, set a goal) and a
+video-like product tour (four scenes: AI tutor, practice feedback, progress, roadmap) with a
+progress bar per scene, play/pause and scene buttons. It is built from HTML/CSS animation rather
+than a video file, so it stays sharp, small, follows the light/dark theme and pauses for
+prefers-reduced-motion (which shows each scene's finished frame). Below it, a dashboard from
+the student's real data: accuracy over 14 days, answers this week, streak and roadmap progress;
+a 14-day accuracy line graph; "Up next" (an unfinished round, the roadmap's current week,
+teachers' quizzes not yet taken, the weakest topic); subject cards; quizzes; recent activity.
+New students get a four-step getting-started list instead. Chart colours use a categorical
+palette validated for colour-vision deficiency in light and dark (tokens `--cat-1..8`).
+

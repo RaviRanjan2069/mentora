@@ -725,3 +725,34 @@ def folder_students(folder_id: int, user: Teacher, db: Db) -> list[StudentOut]:
         if account is not None:
             out.append(StudentOut(student=_person(db, account), enrolled_at=e.created_at))
     return out
+
+
+@router.get("/me/quizzes/pending")
+def pending_quizzes(user: Learner, db: Db) -> list[dict[str, Any]]:
+    """Published quizzes in the student's folders that they can still take (for Home)."""
+    account = _account(db, user)
+    folders = {e.folder_id for e in db.find(m.Enrollment, {"student_id": account.id})}
+    out = []
+    for q in db.find(
+        m.Quiz, {"folder_id": {"$in": list(folders)}, "published": True}, sort=[("id", -1)]
+    ):
+        done = db.count(
+            m.QuizAttempt,
+            {"quiz_id": q.id, "student_id": account.id, "submitted_at": {"$ne": None}},
+        )
+        if done:
+            continue
+        folder = db.get(m.Folder, q.folder_id)
+        subject = db.get(m.Subject, folder.subject_id) if folder else None
+        teacher = db.get(m.Account, folder.teacher_id) if folder else None
+        out.append(
+            {
+                "id": q.id,
+                "title": q.title,
+                "subject": subject.name if subject else "",
+                "teacher": teacher.name if teacher else "",
+                "questions": len(q.questions),
+                "time_limit_min": q.time_limit_min,
+            }
+        )
+    return out[:6]
