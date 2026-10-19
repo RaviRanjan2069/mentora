@@ -515,6 +515,31 @@ def request_teacher(body: RequestIn, request: Request, user: Learner, db: Db) ->
     teacher = db.find_one(m.Account, {"username": body.username.strip().lower(), "role": "teacher"})
     if teacher is None:
         raise HTTPException(404, "No teacher has that user id.")
+    return _ask(db, account, teacher)
+
+
+class JoinIn(BaseModel):
+    code: str = Field(min_length=1, max_length=40)
+
+
+@router.post("/me/teachers/join", status_code=201)
+def join_with_code(body: JoinIn, request: Request, user: Learner, db: Db) -> LinkOut:
+    """A teacher's class code finds the teacher; the teacher still accepts the request."""
+    _limit(request, "login")  # codes must not be guessable by trying many
+    account = _account(db, user)
+    _needs_verification(request, account)
+    try:
+        code = acc.normalize_class_code(body.code)
+    except AccountError:
+        code = ""
+    row = db.get(m.ClassCode, code) if code else None
+    teacher = db.get(m.Account, row.teacher_id) if row else None
+    if teacher is None:
+        raise HTTPException(404, "No class has that code. Check it with your teacher.")
+    return _ask(db, account, teacher)
+
+
+def _ask(db: Store, account: m.Account, teacher: m.Account) -> LinkOut:
     link = db.find_one(m.TeacherLink, {"student_id": account.id, "teacher_id": teacher.id})
     if link and link.status == "accepted":
         raise HTTPException(409, f"{teacher.name} is already your teacher.")
@@ -609,4 +634,51 @@ def remove_student(link_id: int, user: Teacher, db: Db) -> None:
     if link is None or link.teacher_id != account.id:
         raise HTTPException(404, "Not found")
     db.delete(link)
+    db.commit()
+
+
+# --- a teacher's permanent class code --------------------------------------------------------
+
+
+class ClassCodeOut(BaseModel):
+    code: str | None
+
+
+class ClassCodeIn(BaseModel):
+    code: str = Field(min_length=1, max_length=40)
+
+
+@router.get("/teacher/class-code")
+def get_class_code(user: Teacher, db: Db) -> ClassCodeOut:
+    row = db.find_one(m.ClassCode, {"teacher_id": _account(db, user).id})
+    return ClassCodeOut(code=row.id if row else None)
+
+
+@router.put("/teacher/class-code")
+def set_class_code(body: ClassCodeIn, user: Teacher, db: Db) -> ClassCodeOut:
+    """Choose or change the code; the previous code stops working."""
+    account = _account(db, user)
+    try:
+        code = acc.normalize_class_code(body.code)
+    except AccountError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    current = db.find_one(m.ClassCode, {"teacher_id": account.id})
+    if current is not None and current.id == code:
+        return ClassCodeOut(code=code)
+    owner = db.get(m.ClassCode, code)
+    if owner is not None:
+        raise HTTPException(409, "Another class already uses that code. Please choose another.")
+    if current is not None:
+        db.delete(current)
+    db.add(m.ClassCode(id=code, teacher_id=account.id))
+    try:
+        db.commit()
+    except IntegrityError as exc:  # two saves at once
+        raise HTTPException(409, "That code was just taken. Please choose another.") from exc
+    return ClassCodeOut(code=code)
+
+
+@router.delete("/teacher/class-code", status_code=204)
+def remove_class_code(user: Teacher, db: Db) -> None:
+    db.delete_many(m.ClassCode, {"teacher_id": _account(db, user).id})
     db.commit()

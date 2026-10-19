@@ -263,3 +263,5 @@ img.photo.md, .photo-md { width: 40px; height: 40px; border-radius: 999px; objec
 .person .who-name { font-weight: 600; }
 .profile-head { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
 .verify-banner { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.class-code { font: 700 20px/1 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .06em;
+  background: var(--brand-soft); color: var(--brand); padding: 10px 14px; border-radius: 10px; }

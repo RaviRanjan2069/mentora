@@ -384,6 +384,22 @@ class TeacherLink(Document):
 
 
 @dataclass(kw_only=True)
+class ClassCode(Document):
+    """A teacher's permanent class code; students enter it to ask to join (one per teacher)."""
+
+    __collection__ = "class_codes"  # unique teacher_id
+    __id_kind__: ClassVar[IdKind] = "given"
+    __refs__: ClassVar[Mapping[str, Ref]] = {"teacher_id": ACCOUNT}
+
+    id: str  # the code, upper case
+    teacher_id: str
+    created_at: datetime = field(default_factory=now)
+
+    def validate(self) -> None:
+        check(self.id == self.id.upper(), "class codes are stored in upper case")
+
+
+@dataclass(kw_only=True)
 class EmailToken(Document):
     """A one-time link sent by email. Only the token's hash is stored."""
 
@@ -422,5 +438,6 @@ MODELS: tuple[type[Document], ...] = (
     AccountPhoto,
     TeacherLink,
     EmailToken,
+    ClassCode,
 )
 BY_COLLECTION: dict[str, type[Document]] = {model.__collection__: model for model in MODELS}

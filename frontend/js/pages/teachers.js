@@ -16,7 +16,7 @@ export default function teachers(root, { me }) {
       h("p", { class: "muted" }, "Connecting with a teacher needs a Mentora account. Sign out and create one.")));
     return undefined;
   }
-  const st = { links: null, q: "", hits: [], busy: false };
+  const st = { links: null, q: "", hits: [], busy: false, code: "" };
   let timer = 0;
 
   async function load() {
@@ -62,6 +62,23 @@ export default function teachers(root, { me }) {
     paint();
   }
 
+  async function join(e) {
+    e.preventDefault();
+    if (!st.code.trim()) return;
+    st.busy = true;
+    paint();
+    try {
+      const link = await api.post("/api/me/teachers/join", { code: st.code.trim() });
+      toast(`Request sent to ${link.person.name}. They will accept you into their class.`);
+      st.code = "";
+      st.links = await api.get("/api/me/teachers");
+    } catch (err) {
+      toast(errorText(err), "error");
+    }
+    st.busy = false;
+    paint();
+  }
+
   async function leave(link) {
     const verb = link.status === "pending" ? "Cancel your request to" : link.status === "accepted" ? "Leave" : "Remove";
     if (!window.confirm(`${verb} ${link.person.name}?`)) return;
@@ -81,7 +98,17 @@ export default function teachers(root, { me }) {
             h("span", { class: "notice-text" }, "Confirm your email address first (open the link we sent you), then you can ask a teacher to add you."))
         : null,
       h("section", { class: "card" },
-        h("h2", null, "Find your teacher"),
+        h("h2", null, "Join with a class code"),
+        h("p", { class: "muted", style: { marginTop: -6 } }, "Your teacher gives you a code, like RAO-PYTHON. They accept your request."),
+        h("form", { class: "row", onSubmit: join },
+          h("input", {
+            type: "text", value: st.code, "data-key": "code", placeholder: "Class code", maxlength: "40",
+            autocomplete: "off", spellcheck: "false", style: { maxWidth: 260, textTransform: "uppercase" },
+            "aria-label": "Class code", onInput: (e) => { st.code = e.target.value; },
+          }),
+          h("button", { class: "btn primary", type: "submit", disabled: st.busy }, icon("send"), " Send request"))),
+      h("section", { class: "card" },
+        h("h2", null, "Or find your teacher by user id"),
         h("p", { class: "muted", style: { marginTop: -6 } }, "Type your teacher's user id. They will see your request and accept you into their class."),
         h("input", {
           type: "search", placeholder: "Teacher's user id, e.g. dr.rao", value: st.q, "data-key": "q",

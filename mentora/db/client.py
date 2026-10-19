@@ -77,6 +77,9 @@ INDEXES: dict[str, list[IndexModel]] = {
         IndexModel([("teacher_id", ASCENDING), ("status", ASCENDING)], name="ix_links_teacher"),
     ],
     "email_tokens": [IndexModel([("account_id", ASCENDING)], name="ix_email_tokens_account")],
+    "class_codes": [
+        IndexModel([("teacher_id", ASCENDING)], unique=True, name="uq_class_codes_teacher")
+    ],
 }
 
 _MOCK_CLIENTS: dict[str, Any] = {}

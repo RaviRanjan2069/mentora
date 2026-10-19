@@ -95,6 +95,18 @@ def normalize_email(raw: str) -> str:
     return email
 
 
+CLASS_CODE_RE = re.compile(r"^[A-Z0-9](?:[A-Z0-9-]{2,18})[A-Z0-9]$")
+
+
+def normalize_class_code(raw: str) -> str:
+    code = raw.strip().upper()
+    if not CLASS_CODE_RE.match(code) or "--" in code:
+        raise AccountError(
+            "Use 4-20 letters, digits or hyphens for the class code, e.g. RAO-PYTHON."
+        )
+    return code
+
+
 def username_taken(db: Store, username: str) -> bool:
     return db.count(m.Account, {"username": username}) > 0
 

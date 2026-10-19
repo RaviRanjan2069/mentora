@@ -282,3 +282,6 @@ Verification and password-reset links are sent through Brevo (only the token's h
 links expire and work once); without a Brevo key they are logged and accounts count as verified.
 Photos are cropped and resized in the browser, checked by content on the server, and shown only
 to the owner and linked teachers/students.
+A teacher can also choose one permanent class code (4-20 letters, digits, hyphens; unique;
+changing it retires the old one). A student who enters it sends the same request as searching by
+user id, so the teacher still accepts; code attempts are rate-limited against guessing.
