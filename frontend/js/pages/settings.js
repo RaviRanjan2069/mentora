@@ -161,7 +161,7 @@ export default function settings(root, { me }) {
     h("h2", null, "About this installation"),
     h("table", { class: "data" }, h("tbody", null,
       h("tr", null, h("th", null, "Signed in as"),
-        h("td", null, `${m.name} (${m.role}, via ${m.via === "lti" ? "Moodle" : "development sign-in"})`)),
+        h("td", null, `${m.name} (${m.role === "learner" ? "student" : m.role}, ${m.via === "lti" ? "signed in from Moodle" : m.via === "account" ? `Mentora account @${m.username}` : "development sign-in"})`)),
       h("tr", null, h("th", null, "Tutor mode"),
         h("td", null, m.mode === "static" ? "Static (study control: fixed rules, no memory)" : "Adaptive")),
       h("tr", null, h("th", null, "Replies"), h("td", null, REPLIES[m.llm_backend] ?? m.llm_backend)))))).catch(() => about.remove());

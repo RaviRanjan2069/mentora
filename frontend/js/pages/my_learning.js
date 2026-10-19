@@ -100,7 +100,7 @@ function overview(root) {
               lineChart(timeline.map((_, i) => `${p.timeline.length - timeline.length + i + 1}`),
                 [{ name: "Round score", color: "var(--series-1)", values: timeline.map((t) => t.accuracy) }],
                 { label: "Score of each practice round", xName: "Round" })))
-        : h("section", { class: "card hello-card" }, icon("sparkle"),
+        : h("section", { class: "card hello-card" }, icon("book"),
             h("div", null, h("b", null, "Pick a subject to start"),
               h("p", { class: "muted", style: { margin: "4px 0 0" } },
                 "Each round has 10 questions. Mentora notices the topics you miss most and gives you more of them next time, so practice goes where it helps."))),

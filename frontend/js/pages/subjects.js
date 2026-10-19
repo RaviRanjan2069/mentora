@@ -135,7 +135,7 @@ function browse(root, me, go) {
             h("h2", { class: "section-title" }, teacher ? "Your folders" : "Your subjects"),
             h("div", { class: "folder-grid" }, mine.map((f) => folderCard(f, me, go, enroll))))
         : !teacher
-          ? h("section", { class: "card hello-card" }, icon("sparkle"),
+          ? h("section", { class: "card hello-card" }, icon("layers"),
               h("div", null, h("b", null, "Choose what to study"),
                 h("p", { class: "muted", style: { margin: "4px 0 0" } }, "Pick a subject below, then the teacher whose material you like. Enrolling is free and you can leave any time.")))
           : null,
@@ -596,7 +596,7 @@ function analysis(root, folder, me, go) {
         h("h2", null, "Students (lowest average first)"),
         d.students.length === 0 ? h("p", { class: "empty" }, "Nobody has enrolled yet.") : null,
         d.students.length
-          ? h("div", { class: "overflow" }, h("table", null,
+          ? h("div", { class: "overflow" }, h("table", { class: "data" },
               h("thead", null, h("tr", null, ["Student", "Quizzes", "Average", "Strengths", "Needs work", "Last activity"].map((t) => h("th", null, t)))),
               h("tbody", null, d.students.map((r) => h("tr", {
                 class: "clickable", tabindex: "0", onClick: () => studentDrawer(r), onKeydown: (e) => { if (e.key === "Enter") studentDrawer(r); },

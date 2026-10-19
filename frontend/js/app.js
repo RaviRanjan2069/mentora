@@ -300,7 +300,7 @@ function shell(me, signOut) {
       nav,
       h("div", { class: "grow" }),
       me.role === "learner"
-        ? h("a", { class: "sidebar-cta", href: "#/tutor" }, icon("sparkle"),
+        ? h("a", { class: "sidebar-cta", href: "#/tutor" }, icon("chat"),
             h("div", null, h("b", null, "Ask the AI tutor"), h("small", null, "Any question, any subject")))
         : null,
       h("button", { class: "nav-item plain", onClick: signOut }, icon("logout"), " Sign out")),

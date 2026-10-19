@@ -136,7 +136,7 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
       h("span", null, "Your class code"),
       h("div", { class: "class-code-pick" },
         h("span", { class: "class-code", "data-class-code": "" }, st.classCode || "…"),
-        h("button", { type: "button", class: "btn small", onClick: () => suggestCode(true) }, icon("sparkle"), " Another code")),
+        h("button", { type: "button", class: "btn small", onClick: () => suggestCode(true) }, "Another code")),
       h("div", { class: "hint" },
         "Your students type this code to ask to join your class. It becomes permanent when you create your account."));
   }
@@ -348,7 +348,7 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
         h("div", { class: "hero-brand" }, h("span", { class: "hero-logo" }, logo()),
           h("div", null, h("b", null, "Mentora"), h("small", null, "Self-learning strategy tutor"))),
         h("div", { class: "hero-main" },
-          h("span", { class: "hero-pill" }, icon("sparkle"), "For students and teachers"),
+          h("span", { class: "hero-pill" }, icon("users"), "For students and teachers"),
           h("h2", null, "Learn how you learn: ", h("span", { class: "hero-accent" }, "plan, practise, reflect.")),
           h("p", { class: "hero-lead" }, "Mentora helps you set goals, work through course material with an AI tutor, and look back on what worked."),
           h("ul", { class: "hero-features" }, FEATURES.map(([name, head, text]) => h("li", null,

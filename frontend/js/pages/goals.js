@@ -119,7 +119,7 @@ function overview(root, ctx) {
       h("div", { class: "progress" }, h("span", { style: { width: `${p.percent * 100}%` } })),
       h("div", { class: "muted small" }, `${pct(p.percent)} done · week ${p.current_week} of ${p.weeks_total}`,
         r.current_title && r.status === "active" ? `: ${r.current_title}` : ""),
-      r.adaptations ? h("div", { class: "small adapt-hint" }, icon("sparkle"), ` Adapted ${plural(r.adaptations, "time")} to your results`) : null);
+      r.adaptations ? h("div", { class: "small adapt-hint" }, icon("activity"), ` Adapted ${plural(r.adaptations, "time")} to your results`) : null);
   }
 
   function paint() {
@@ -279,7 +279,7 @@ function roadmapPage(root, id) {
           : null),
       r.adaptations.length
         ? h("details", { class: "card adapt-log", open: r.new_adaptations.length > 0 },
-            h("summary", null, icon("sparkle"), ` Mentora adapted your plan ${plural(r.adaptations.length, "time")}`),
+            h("summary", null, icon("activity"), ` Mentora adapted your plan ${plural(r.adaptations.length, "time")}`),
             h("ul", null, [...r.adaptations].reverse().map((a) => h("li", null, h("span", null, a.text), h("span", { class: "muted small" }, ` · ${timeAgo(a.at)}`)))))
         : h("p", { class: "muted small", style: { margin: 0 } },
             "Practise in My Learning as you go: Mentora ticks practice tasks for you, adds reviews for topics you miss, and makes weeks optional when you already know them."),

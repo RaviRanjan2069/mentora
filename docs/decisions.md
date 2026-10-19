@@ -387,3 +387,13 @@ written from the numbers, this week's figures with the change from last week, th
 accuracy graph, a numbered Up next list, subjects as a table, and the tour as a framed "How
 Mentora works" panel with numbered scene tabs.
 
+## D48 — One editorial look for every page
+
+Every page now shares the calm, print-like style first used on Home, through one design layer at
+the end of `frontend/css/components.css` (tokens plus a few component refinements, so page code
+did not change): warm neutral paper and ink colours with one blue accent (light and dark), full
+page width, serif page titles and figures, small-caps section labels, flat cards with hairline
+borders (no shadows, glows or gradients), square tags, a menu that marks the current page with a
+rule, figure cards without icon tiles, flat subject marks, and no decorative sparkle icons. Long
+text keeps a readable line length inside the full-width layout.
+
