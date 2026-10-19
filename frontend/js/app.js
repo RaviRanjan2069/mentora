@@ -3,7 +3,7 @@
 import { api, timeAgo } from "./api.js";
 import { h, icon, logo, render } from "./dom.js";
 import { openPalette } from "./palette.js";
-import { loadSession, resetSession, send } from "./session.js";
+import { loadSession, resetSession } from "./session.js";
 import { applyTheme, saveTheme, storedTheme } from "./theme.js";
 import { openModal, popover, toast } from "./ui.js";
 import login from "./pages/login.js";
@@ -31,7 +31,7 @@ import { photoOf } from "./people.js";
 const STUDENT = [
   { path: "/", label: "Home", icon: "home", title: "", sub: "", page: home },
   { path: "/subjects", label: "Subjects", icon: "layers", title: "Subjects", sub: "Choose a subject and teacher, read their material and take their quizzes", page: subjects },
-  { path: "/tutor", label: "AI Tutor", icon: "bot", title: "AI Tutor", sub: "Plan · Learn · Reflect · Improve", page: tutor },
+  { path: "/tutor", label: "AI Tutor", icon: "bot", title: "AI Tutor", sub: "Ask anything", page: tutor, full: true },
   { path: "/learning", label: "My Learning", icon: "book", title: "My Learning", sub: "Practise any subject; questions adapt to the topics you miss most", page: myLearning },
   { path: "/goals", label: "Goals & Plans", icon: "target", title: "Goals & Plans", sub: "Turn a goal into a week-by-week roadmap that adapts to you", page: goals },
   // Not in the menu (My Learning is the practice page): opened from Home's suggestions.
@@ -224,8 +224,13 @@ function shell(me, signOut) {
   }
 
   const ask = (q) => {
-    window.location.hash = "#/tutor";
-    send(q);
+    try {
+      window.sessionStorage.setItem("mentora-chat-pending", q);
+    } catch {
+      /* the question just is not pre-filled */
+    }
+    if (route() === "/tutor") show();
+    else window.location.hash = "#/tutor";
   };
   const palette = () => openPalette(pages.filter((p) => !p.hidden).map((p) => ({
     label: p.label, icon: p.icon, hint: p.sub || undefined, run: () => { window.location.hash = `#${p.path}`; },
@@ -276,7 +281,9 @@ function shell(me, signOut) {
     paintNav();
     render(title, h("h1", null, page.title || greeting(me.name)),
       h("div", { class: "sub" }, page.sub || "Here's your learning progress and recommendations."));
-    const body = h("div", { class: "page-enter" });
+    const body = h("div", { class: page.full ? "page-full" : "page-enter" });
+    content.classList.toggle("full", Boolean(page.full));
+    root.classList.toggle("full-page", Boolean(page.full));
     render(content, verifyBanner(), me.llm_backend === "offline" || me.llm_backend === "fake" ? demoNotice(me.role) : null, body);
     cleanup = page.page(body, { me, ask, refreshMe }) || null;
     refreshCounts();
@@ -293,7 +300,7 @@ function shell(me, signOut) {
       h("div", { class: "grow" }),
       me.role === "learner"
         ? h("a", { class: "sidebar-cta", href: "#/tutor" }, icon("sparkle"),
-            h("div", null, h("b", null, "Study with the tutor"), h("small", null, "Plan a session, then practise and reflect")))
+            h("div", null, h("b", null, "Ask the AI tutor"), h("small", null, "Any question, any subject")))
         : null,
       h("button", { class: "nav-item plain", onClick: signOut }, icon("logout"), " Sign out")),
     scrim,

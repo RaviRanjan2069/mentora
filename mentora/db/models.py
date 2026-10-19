@@ -644,6 +644,24 @@ class Roadmap(Document):
         one_of(self.pace, ("steady", "fast"), "pace")
 
 
+# --- AI tutor chat (D46) -------------------------------------------------------------------------
+
+
+@dataclass(kw_only=True)
+class ChatThread(Document):
+    """A student's conversation with the AI tutor chat; ``messages`` is [{role, text, at}]."""
+
+    __collection__ = "chat_threads"  # (student_id, updated_at)
+    __refs__: ClassVar[Mapping[str, Ref]] = {"student_id": ACCOUNT}
+
+    id: int = 0
+    student_id: str
+    title: str = "New chat"
+    messages: list[dict[str, Any]] = field(default_factory=list)
+    created_at: datetime = field(default_factory=now)
+    updated_at: datetime = field(default_factory=now)
+
+
 MODELS: tuple[type[Document], ...] = (
     Learner,
     Course,
@@ -675,5 +693,6 @@ MODELS: tuple[type[Document], ...] = (
     BankQuestion,
     PracticeRound,
     Roadmap,
+    ChatThread,
 )
 BY_COLLECTION: dict[str, type[Document]] = {model.__collection__: model for model in MODELS}

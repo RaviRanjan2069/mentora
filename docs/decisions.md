@@ -357,3 +357,15 @@ average option); answers per day; a subject table with accuracy, a trend sparkli
 over the last 7 days, strongest and weakest topics; topics to focus on (with one-click practice);
 strongest topics; recent activity; and roadmaps. Days are counted in the browser's time zone.
 
+## D46 — AI Tutor page: a simple chat for any question
+
+The AI Tutor page is a full-screen chat, like a general chat assistant: it welcomes the student
+by name, suggests starter questions, streams answers (Markdown with code blocks), keeps each
+conversation (History, New chat) in `chat_threads`, and sends the last 12 messages along for
+context. It calls the language model directly with a general tutoring prompt instead of the
+research tutor pipeline (orchestrator: policy, Socratic moves, course-grounded answers), which
+remains in the code and still serves the hidden practice page. Safety stays: messages that
+match the distress lexicon are never sent to the model; the student gets the support message
+and an escalation reaches their teachers. While the local model is unreachable the chat says
+it is offline instead of replying with offline templates. 20 messages a minute per student.
+

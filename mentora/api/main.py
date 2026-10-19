@@ -16,6 +16,7 @@ from mentora.api import lti
 from mentora.api.routes import (
     accounts,
     auth,
+    chat,
     console,
     health,
     learner,
@@ -97,6 +98,7 @@ def create_app(
         subjects.router,
         learning.router,
         roadmaps.router,
+        chat.router,
         learner.router,
         teacher.router,
         console.router,
