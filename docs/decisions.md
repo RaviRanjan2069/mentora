@@ -343,6 +343,6 @@ roadmap was made (10 answers at 60%, checkpoints 15 at 70%); the rest the studen
 Adapting is rule-based and logged with its reason: a topic from the weeks so far scored below
 60% (three or more answers) gets a review task in the current week; a future week whose topics
 the student already masters (80%+ with five or more answers) becomes optional; falling two or
-more weeks behind moves the dates. The earlier goals, plans and tutor memory stay below the
-roadmaps no more: the tutor-memory notes are listed (and deletable) in Settings → Privacy.
+more weeks behind moves the dates. The page shows roadmaps only; the notes the tutor remembers
+are listed (and can be deleted) in Settings → Privacy, and teacher messages open from the bell.
 
