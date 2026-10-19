@@ -985,3 +985,12 @@ table.data th, .subj-table th { text-transform: uppercase; letter-spacing: .06em
   .topbar h1 { font-size: 22px; }
   .nav-item.active::before { left: -14px; }
 }
+
+/* Stable width: always show the page's scrollbar track, so pages do not shift sideways when the
+   content grows past one screen while loading, or between short and long pages. (scrollbar-gutter
+   is not honoured for the root scroller in every browser.) Phones use overlay scrollbars. */
+html { overflow-x: hidden; overflow-y: scroll; }
+/* Wide tables wrap long topic names instead of scrolling sideways inside their card. */
+.subj-table td .badge, .home-table td .badge, table.data td .badge { white-space: normal; max-width: 100%; text-align: left; }
+.subj-table td:nth-child(6), .subj-table td:nth-child(7) { min-width: 140px; }
+@media (max-width: 1400px) { .subj-table th:nth-child(3), .subj-table td:nth-child(3) { display: none; } }
