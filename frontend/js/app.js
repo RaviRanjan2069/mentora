@@ -33,7 +33,8 @@ const STUDENT = [
   { path: "/tutor", label: "AI Tutor", icon: "bot", title: "AI Tutor", sub: "Plan · Learn · Reflect · Improve", page: tutor },
   { path: "/learning", label: "My Learning", icon: "book", title: "My Learning", sub: "Your goals, plans, tutor suggestions and what Mentora remembers", page: learning },
   { path: "/practice", label: "Practice", icon: "practice", title: "Practice Questions", sub: "Test your understanding and get feedback", page: practice },
-  { path: "/resources", label: "Resources", icon: "folder", title: "Resources", sub: "Course material, by week", page: resources },
+  // Not in the menu: opened from the tutor's source links and Home suggestions.
+  { path: "/resources", label: "Resources", icon: "folder", title: "Course notes", sub: "The passage the tutor used", page: resources, hidden: true },
   { path: "/progress", label: "Progress", icon: "trend", title: "Progress", sub: "Mastery by concept and how well your confidence matches your results", page: progress },
   { path: "/teachers", label: "My Teachers", icon: "users", title: "My Teachers", sub: "Join your teacher's class with a class code or their user id", page: teachers },
   { path: "/profile", label: "Profile", icon: "user", title: "Profile", sub: "Your photo, details, password and account", page: profile },
@@ -213,7 +214,7 @@ function shell(me, signOut) {
     window.location.hash = "#/tutor";
     send(q);
   };
-  const palette = () => openPalette(pages.map((p) => ({
+  const palette = () => openPalette(pages.filter((p) => !p.hidden).map((p) => ({
     label: p.label, icon: p.icon, hint: p.sub || undefined, run: () => { window.location.hash = `#${p.path}`; },
   })), me.role === "learner" ? ask : undefined);
   const setMenu = (open) => {
@@ -247,7 +248,7 @@ function shell(me, signOut) {
 
   function paintNav() {
     const current = pages.find((p) => p.path === route()) ?? pages[0];
-    render(nav, pages.map((p) => h(
+    render(nav, pages.filter((p) => !p.hidden).map((p) => h(
       "a", { href: `#${p.path}`, class: `nav-item ${p === current ? "active" : ""}`, "aria-current": p === current ? "page" : null },
       icon(p.icon), p.label,
       p.path === "/teacher/escalations" && openEsc.length > 0 ? h("span", { class: "count" }, openEsc.length) : null)));
