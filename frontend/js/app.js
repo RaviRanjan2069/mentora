@@ -5,7 +5,7 @@ import { h, icon, logo, render } from "./dom.js";
 import { openPalette } from "./palette.js";
 import { loadSession, resetSession, send } from "./session.js";
 import { applyTheme, saveTheme, storedTheme } from "./theme.js";
-import { popover } from "./ui.js";
+import { popover, toast } from "./ui.js";
 import login from "./pages/login.js";
 import home from "./pages/home.js";
 import tutor from "./pages/tutor.js";
@@ -21,6 +21,10 @@ import analytics from "./pages/analytics.js";
 import content from "./pages/content.js";
 import training from "./pages/training.js";
 import reports from "./pages/reports.js";
+import profile from "./pages/profile.js";
+import teachers from "./pages/teachers.js";
+import myStudents from "./pages/my_students.js";
+import { photoOf } from "./people.js";
 
 const STUDENT = [
   { path: "/", label: "Home", icon: "home", title: "", sub: "", page: home },
@@ -29,17 +33,21 @@ const STUDENT = [
   { path: "/practice", label: "Practice", icon: "practice", title: "Practice Questions", sub: "Test your understanding and get feedback", page: practice },
   { path: "/resources", label: "Resources", icon: "folder", title: "Resources", sub: "Course material, by week", page: resources },
   { path: "/progress", label: "Progress", icon: "trend", title: "Progress", sub: "Mastery by concept and how well your confidence matches your results", page: progress },
+  { path: "/teachers", label: "My Teachers", icon: "users", title: "My Teachers", sub: "Join your teacher's class with their user id", page: teachers },
+  { path: "/profile", label: "Profile", icon: "user", title: "Profile", sub: "Your photo, details, password and account", page: profile },
   { path: "/settings", label: "Settings", icon: "settings", title: "Settings", sub: "Appearance, privacy and your data", page: settings },
 ];
 
 const TEACHER = [
   { path: "/teacher", label: "Teacher Console", icon: "layers", title: "Teacher Console", sub: "Monitor student progress and manage the AI tutor", page: overview },
+  { path: "/teacher/my-students", label: "My Students", icon: "user", title: "My Students", sub: "Requests to join your class, and your students", page: myStudents },
   { path: "/teacher/escalations", label: "Escalations", icon: "alert", title: "Escalations", sub: "Messages the tutor passed to you", page: escalations },
   { path: "/teacher/students", label: "Students", icon: "users", title: "Students", sub: "Progress and risk, per student (pseudonymous)", page: students },
   { path: "/teacher/analytics", label: "Learning Analytics", icon: "bars", title: "Learning Analytics", sub: "Every tutor decision and why it was made", page: analytics },
   { path: "/teacher/content", label: "Content Management", icon: "folder", title: "Content Management", sub: "Course material, quiz items and course-memory review", page: content },
   { path: "/teacher/training", label: "Model Training", icon: "cpu", title: "Model Training", sub: "Learner models and tutor policies (nothing changes without your approval)", page: training },
   { path: "/teacher/reports", label: "Reports", icon: "file", title: "Reports", sub: "Exports and policy evaluation reports", page: reports },
+  { path: "/teacher/profile", label: "Profile", icon: "user", title: "Profile", sub: "Your photo, details, password and account", page: profile },
   { path: "/teacher/settings", label: "Settings", icon: "settings", title: "Settings", sub: "Tutor rules and system information", page: settings },
 ];
 
@@ -127,10 +135,17 @@ function accountMenu(me, close, signOut, palette) {
     h("div", { class: "popover-head" },
       h("div", null, h("b", null, me.name)),
       h("div", { class: "muted small" },
-        `${me.role === "teacher" ? "Teacher" : "Student"} · ${me.via === "lti" ? "signed in from Moodle" : "development sign-in"}`)),
+        `${me.role === "teacher" ? "Teacher" : "Student"} · ${
+          me.via === "account" ? `@${me.username}` : me.via === "lti" ? "signed in from Moodle" : "development sign-in"}`)),
     seg,
     h("button", { class: "popover-item", onClick: () => { close(); palette(); } },
       icon("search"), h("span", null, "Search and jump"), h("kbd", null, "Ctrl K")),
+    me.via === "account"
+      ? h("button", {
+          class: "popover-item",
+          onClick: () => { close(); window.location.hash = me.role === "teacher" ? "#/teacher/profile" : "#/profile"; },
+        }, icon("user"), h("span", null, "Profile"))
+      : null,
     h("button", {
       class: "popover-item",
       onClick: () => { close(); window.location.hash = me.role === "teacher" ? "#/teacher/settings" : "#/settings"; },
@@ -145,9 +160,51 @@ function shell(me, signOut) {
   const nav = h("nav", { class: "nav" });
   const title = h("div", { class: "topbar-title" });
   const bellSlot = h("div");
+  const accountSlot = h("div");
   const root = h("div", { class: "shell" });
   let cleanup = null;
   let openEsc = [];
+
+  function paintAccount() {
+    render(accountSlot, popover({
+      label: "Account menu",
+      button: h("span", { class: "avatar" },
+        photoOf(me, "sm"),
+        h("span", { class: "avatar-name" }, me.role === "teacher" ? "Teacher" : "Student")),
+      content: (close) => accountMenu(me, close, signOut, palette),
+    }));
+  }
+
+  /** After a profile change: new name or photo in the header. */
+  async function refreshMe() {
+    try {
+      Object.assign(me, await api.get("/api/me"));
+      paintAccount();
+    } catch {
+      /* keep what we have */
+    }
+  }
+
+  function verifyBanner() {
+    if (me.via !== "account" || me.email_verified !== false) return null;
+    const el = h("div", { class: "notice verify-banner", role: "note" },
+      h("span", { class: "notice-tag" }, "Email"),
+      h("span", { class: "notice-text" }, "Please confirm your email address: open the link we sent you."),
+      h("button", {
+        class: "btn small",
+        onClick: async (e) => {
+          e.target.disabled = true;
+          try {
+            await api.post("/api/auth/resend-verification");
+            toast("We sent a new confirmation link.");
+          } catch (err) {
+            toast(err.message, "error");
+            e.target.disabled = false;
+          }
+        },
+      }, "Send the link again"));
+    return el;
+  }
 
   const ask = (q) => {
     window.location.hash = "#/tutor";
@@ -203,8 +260,8 @@ function shell(me, signOut) {
     render(title, h("h1", null, page.title || greeting(me.name)),
       h("div", { class: "sub" }, page.sub || "Here's your learning progress and recommendations."));
     const body = h("div", { class: "page-enter" });
-    render(content, me.llm_backend === "offline" || me.llm_backend === "fake" ? demoNotice(me.role) : null, body);
-    cleanup = page.page(body, { me, ask }) || null;
+    render(content, verifyBanner(), me.llm_backend === "offline" || me.llm_backend === "fake" ? demoNotice(me.role) : null, body);
+    cleanup = page.page(body, { me, ask, refreshMe }) || null;
     refreshCounts();
   }
 
@@ -229,13 +286,7 @@ function shell(me, signOut) {
         title,
         h("div", { class: "spacer" }),
         bellSlot,
-        popover({
-          label: "Account menu",
-          button: h("span", { class: "avatar" },
-            h("span", { class: "circle" }, me.name.slice(0, 1).toUpperCase()),
-            h("span", { class: "avatar-name" }, me.role === "teacher" ? "Teacher" : "Student")),
-          content: (close) => accountMenu(me, close, signOut, palette),
-        })),
+        accountSlot),
       content));
 
   const onKey = (e) => {
@@ -248,6 +299,7 @@ function shell(me, signOut) {
   window.addEventListener("keydown", onKey);
   render(app, root);
   paintBell(0);
+  paintAccount();
   show();
   return () => {
     cleanup?.();
@@ -267,6 +319,12 @@ async function boot() {
   } catch {
     me = null;
   }
+  // Links from emails work whether or not someone is signed in.
+  const r = route();
+  if (r === "/verify" || r === "/reset") {
+    login(app, { onSignedIn: boot, mode: r.slice(1) });
+    return;
+  }
   if (!me) {
     resetSession();
     login(app, { onSignedIn: boot });
@@ -279,6 +337,11 @@ async function boot() {
   if (me.role === "learner") loadSession();
   stopShell = shell(me, signOut);
 }
+
+// An email link (#/verify, #/reset) opened in a tab that already shows Mentora.
+window.addEventListener("hashchange", () => {
+  if (route() === "/verify" || route() === "/reset") boot();
+});
 
 applyTheme(storedTheme());
 render(app, h("div", { class: "boot" }, logo()));

@@ -42,6 +42,10 @@ What SQL used to enforce is enforced by `mentora/db/store.py`:
 | `teacher_rules` | Structured rules for the filter | `rule` (e.g. `{"forbid": {"agent": "PeerBroker"}, "when": {"week_lte": 1}}`) |
 | `corpus_passages` | RAG passages | `_id` (citable passage id), `embedding`, `concept_keys`, `section`, `week` |
 | `consents` | Consent records | `consent_type` ∈ {tutoring, research_logging}, `granted`, `form_version` |
+| `accounts` | A person's sign-in identity (D41) | `username` (permanent user id, unique), `email` (unique), `email_verified`, `role`, `name`, `gender`, `password_hash` (scrypt), `session_version`, lockout fields, `learner_id` (the pseudonym) |
+| `account_photos` | Profile photo | `_id` = account id, small JPEG/PNG/WebP bytes, `content_type` |
+| `teacher_links` | Student → teacher requests | `student_id`, `teacher_id`, `status` ∈ {pending, accepted, declined}; unique pair |
+| `email_tokens` | One-time email links | `_id` = sha256 of the token, `purpose` ∈ {verify, reset}, `expires_at`, `used` |
 | `counters`, `meta` | Integer id sequences; schema version | |
 
 Deleting a learner removes their sessions, events, goals (and plans), memory, transitions,

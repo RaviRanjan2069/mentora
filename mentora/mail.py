@@ -38,7 +38,8 @@ class LogMailer:
 
     def send(self, to: str, subject: str, text: str) -> None:
         self.sent.append((to, subject, text))
-        log.info("email not sent (no mail service configured) to %s: %s\n%s", to, subject, text)
+        # A warning, so the link shows in development logs without any logging setup.
+        log.warning("email not sent (no mail service configured) to %s: %s\n%s", to, subject, text)
 
 
 class BrevoMailer:

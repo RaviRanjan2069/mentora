@@ -29,6 +29,9 @@ each database round trip is a few milliseconds; a tutor turn makes about 25.
 | `MENTORA_DEV_TEACHER_CODE` | secret | Without it, anyone could sign in as a teacher. |
 | `MENTORA_COOKIE_HTTPS_ONLY` | `true` | Render serves HTTPS. |
 | `MENTORA_SESSION_SECRET`, `MENTORA_PSEUDONYM_SALT` | long random | Keep the salt fixed once learners exist. |
+| `MENTORA_DEV_LOGIN` | `false` once accounts are used | Everyone signs up / in with an account (D41). |
+| `MENTORA_BREVO_API_KEY`, `MENTORA_MAIL_FROM`, `MENTORA_MAIL_FROM_NAME` | secret / your verified sender / `Mentora` | Verification and password-reset emails. |
+| `MENTORA_PUBLIC_BASE_URL` | `https://<service>.onrender.com` | Links in emails point here. |
 
 ## First deployment
 
@@ -102,6 +105,20 @@ python scripts/smoke_deploy.py https://<service>.onrender.com --teacher-code <co
 It checks health, the web app and its assets, role separation, retrieval, a tutor session,
 a quiz answer with confidence, a distress escalation answered by the teacher, and the
 teacher console. It writes one demo learner and one escalation; that is expected.
+
+## Accounts and email (Brevo, free)
+
+1. Sign up at <https://www.brevo.com> (free: 300 emails a day, no card; emails carry Brevo's logo).
+2. *Senders, domains & dedicated IPs* → *Senders* → add the address mails come from (e.g. your
+   Gmail) and confirm it from the email Brevo sends.
+3. *SMTP & API* → *API keys* → generate a key.
+4. On Render set `MENTORA_BREVO_API_KEY`, `MENTORA_MAIL_FROM` (the confirmed sender),
+   `MENTORA_PUBLIC_BASE_URL` and `MENTORA_DEV_LOGIN=false`, then deploy.
+5. Create an account on the site: the confirmation email arrives within a minute (check spam the
+   first time). Teachers sign up with the teacher code; students join them from *My Teachers*.
+
+Accounts hold personal data (email, name, gender, photo) on Atlas M0, which has no backups. Anyone
+can delete their own account and data from *Profile*.
 
 ## Updating
 

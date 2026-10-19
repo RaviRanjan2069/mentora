@@ -1,10 +1,26 @@
 import { api, errorText, pct, timeAgo } from "../api.js";
 import { heatmap, masteryBars, phaseBars, SRL_ROWS } from "../charts.js";
 import { h, icon, plural, render } from "../dom.js";
+import { photoOf } from "../people.js";
 import { errorLine, openDrawer, skeleton } from "../ui.js";
 
+/** Open a student's details from elsewhere (My Students), with or without sessions yet. */
+export async function openStudent(learnerId, person) {
+  let rows = [];
+  try {
+    rows = await api.get("/api/teacher/students");
+  } catch {
+    /* the drawer shows the error */
+  }
+  studentPanel(rows.find((r) => r.id === learnerId) ?? {
+    id: learnerId, learner: person?.username ?? learnerId, name: person?.name, username: person?.username,
+    has_photo: person?.has_photo, simulated: false, last_active: null, quiz_average: null, answers: 0,
+    dropout_risk: null, at_risk: false, open_escalations: 0,
+  });
+}
+
 function studentPanel(row) {
-  openDrawer(`Student ${row.learner}`, (close) => {
+  openDrawer(row.name ? `${row.name} (@${row.username})` : `Student ${row.learner}`, (close) => {
     const body = h("div", null,
       h("div", { class: "row" },
         row.at_risk ? h("span", { class: "badge danger" }, "At risk") : h("span", { class: "badge ok" }, "On track"),
@@ -48,7 +64,8 @@ export default function students(root) {
   function paint() {
     const shown = st.rows.filter((r) =>
       (st.filter === "risk" ? r.at_risk : st.filter === "real" ? !r.simulated : true)
-      && (!st.q.trim() || r.learner.toLowerCase().includes(st.q.trim().toLowerCase())));
+      && (!st.q.trim() || [r.learner, r.name, r.username].some((x) =>
+        (x ?? "").toLowerCase().includes(st.q.trim().toLowerCase()))));
     render(root, h(
       "section", { class: "card overflow" },
       h("div", { class: "row between" },
@@ -77,7 +94,10 @@ export default function students(root) {
             class: "clickable", tabindex: "0", onClick: () => studentPanel(r),
             onKeydown: (e) => { if (e.key === "Enter") studentPanel(r); },
           },
-          h("td", null, h("code", null, r.learner), r.simulated ? h("span", { class: "muted small" }, " (simulated)") : null),
+          h("td", null, r.name
+            ? h("div", { class: "person" }, photoOf(r), h("div", null, h("div", { class: "who-name" }, r.name),
+                h("div", { class: "muted small" }, `@${r.username}`)))
+            : [h("code", null, r.learner), r.simulated ? h("span", { class: "muted small" }, " (simulated)") : null]),
           h("td", null, r.sessions),
           h("td", { class: "muted" }, r.last_active ? timeAgo(r.last_active) : "never"),
           h("td", null, pct(r.mean_mastery)),

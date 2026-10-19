@@ -266,3 +266,19 @@ that the Tutor, Practice and command palette subscribe to. FastAPI serves `front
 with `Cache-Control: no-cache` (file names are not fingerprinted, so browsers revalidate by
 ETag after a deploy). The Docker image lost its Node build stage; CI syntax-checks the
 modules with `node --check`.
+
+## D41 — Accounts with a permanent user id (deployment)
+Requested: real sign-up and sign-in for students and teachers (user id, email, password, name,
+gender, photo) and a way for students to join a teacher. `accounts` holds the person; learning
+data stays keyed by the pseudonym `Account.learner_id`, so analytics and the offline loop are
+unchanged. Passwords are hashed with scrypt; 5 wrong passwords lock an account for 15 minutes;
+sign-up, sign-in and email requests are rate-limited per IP; the session cookie carries the
+account's `session_version`, so a password change or reset signs out every other device.
+Teacher sign-up needs the teacher code. A student finds a teacher by user id and sends a request;
+the teacher accepts or declines (`teacher_links`). A teacher with an account sees only their
+accepted students; escalations from students without a teacher go to every teacher so a distress
+message always reaches someone. Moodle and development-sign-in teachers still see everyone.
+Verification and password-reset links are sent through Brevo (only the token's hash is stored;
+links expire and work once); without a Brevo key they are logged and accounts count as verified.
+Photos are cropped and resized in the browser, checked by content on the server, and shown only
+to the owner and linked teachers/students.
