@@ -89,26 +89,58 @@ function rules() {
 }
 
 function privacy() {
+  const section = h("section", { class: "card" });
+  let notes = null;
+
+  async function reload() {
+    try {
+      notes = await api.get("/api/me/memory");
+    } catch {
+      notes = [];
+    }
+    paint();
+  }
+
+  async function forget(id) {
+    await api.del(`/api/me/memory/${id}`);
+    toast("Deleted. The tutor will no longer use that note.");
+    reload();
+  }
+
   async function forgetAll() {
     if (!window.confirm("Delete everything Mentora remembers about you?")) return;
     try {
       await api.del("/api/me/memory");
       toast("Done. Mentora no longer remembers anything about you.");
+      reload();
     } catch (e) {
       toast(errorText(e), "error");
     }
   }
-  return h("section", { class: "card" },
-    h("h2", null, "Privacy"),
-    h("p", { class: "muted" },
-      "Mentora stores your activity under a pseudonym, not your name or LMS id. Notes the tutor remembers are listed "
-      + "on Goals & Plans, where you can delete them one by one, or all at once here. Old notes are deleted "
-      + "automatically after the retention period."),
-    h("div", { class: "row" },
-      h("a", { class: "btn", href: "/api/me/export", download: true }, icon("download"), " Download my data"),
-      h("button", { class: "btn danger", onClick: forgetAll }, icon("trash"), " Delete all my memory")),
-    h("p", { class: "muted small" },
-      "The download is a JSON file with your sessions, goals, remembered notes, messages to your teacher and activity log."));
+
+  function paint() {
+    render(section,
+      h("h2", null, "Privacy"),
+      h("p", { class: "muted" },
+        "Mentora stores your activity under a pseudonym, not your name or LMS id. Below are the short notes the AI tutor "
+        + "remembers to help you in later sessions; delete any of them, or all at once. Old notes are deleted "
+        + "automatically after the retention period."),
+      h("h3", null, "What Mentora remembers about you"),
+      notes === null ? h("p", { class: "muted" }, "Loading…")
+        : notes.length === 0 ? h("p", { class: "empty" }, "Nothing yet.")
+          : h("ul", { class: "list" }, notes.map((n) => h("li", { class: "list-row" },
+              h("div", { class: "body" }, n.text),
+              h("button", { class: "btn small danger", onClick: () => forget(n.id) }, icon("trash"), " Delete")))),
+      h("div", { class: "row", style: { marginTop: 12 } },
+        h("a", { class: "btn", href: "/api/me/export", download: true }, icon("download"), " Download my data"),
+        h("button", { class: "btn danger", onClick: forgetAll }, icon("trash"), " Delete all my memory")),
+      h("p", { class: "muted small" },
+        "The download is a JSON file with your sessions, goals, remembered notes, messages to your teacher and activity log."));
+  }
+
+  paint();
+  reload();
+  return section;
 }
 
 const REPLIES = {

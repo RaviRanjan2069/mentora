@@ -1,9 +1,8 @@
 // Goals & Plans: turn a goal ("Learn Java from basic to advanced") into a week-by-week roadmap,
-// follow it, and see how Mentora adapts it. Below: goals and notes from tutor sessions.
+// follow it, and see how Mentora adapts it.
 import { api, errorText, pct, timeAgo } from "../api.js";
 import { h, hashParam, icon, plural, render } from "../dom.js";
 import { errorLine, skeleton, toast } from "../ui.js";
-import learning from "./learning.js";
 import { hue, subjectBadge } from "./subjects.js";
 
 const STAGE_TONE = { Basics: "basics", Intermediate: "inter", Advanced: "adv", Project: "proj" };
@@ -23,7 +22,11 @@ const go = (params) => {
 };
 
 export default function goals(root, ctx) {
-  if (ctx.me.via !== "account") return learning(root, ctx);
+  if (ctx.me.via !== "account") {
+    render(root, h("section", { class: "card" }, h("h2", null, "Goals & Plans"),
+      h("p", { class: "muted" }, "Roadmaps need a Mentora account. Sign out and create one.")));
+    return undefined;
+  }
   const id = hashParam("roadmap");
   if (id) return roadmapPage(root, Number(id));
   return overview(root, ctx);
@@ -44,13 +47,11 @@ function stageBar(weeks) {
 
 function overview(root, ctx) {
   const st = { catalog: null, list: null, goal: "", level: "beginner", pace: "steady", busy: false, preview: null, error: null };
-  const tutorPart = h("div");
 
   async function load() {
     try {
       [st.catalog, st.list] = await Promise.all([api.get("/api/roadmaps/catalog"), api.get("/api/roadmaps")]);
       paint();
-      learning(tutorPart, ctx);
     } catch (e) {
       render(root, errorLine(errorText(e)));
     }
@@ -147,8 +148,7 @@ function overview(root, ctx) {
       st.list.length
         ? h("section", null, h("h2", { class: "section-title" }, "My roadmaps"),
             h("div", { class: "roadmap-grid" }, st.list.map(card)))
-        : null,
-      h("section", null, h("h2", { class: "section-title" }, "From your tutor sessions"), tutorPart)));
+        : null));
   }
 
   render(root, skeleton({ cards: 2 }));

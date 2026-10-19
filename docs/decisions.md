@@ -344,5 +344,5 @@ Adapting is rule-based and logged with its reason: a topic from the weeks so far
 60% (three or more answers) gets a review task in the current week; a future week whose topics
 the student already masters (80%+ with five or more answers) becomes optional; falling two or
 more weeks behind moves the dates. The earlier goals, plans and tutor memory stay below the
-roadmaps under "From your tutor sessions".
+roadmaps no more: the tutor-memory notes are listed (and deletable) in Settings → Privacy.
 

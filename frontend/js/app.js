@@ -5,7 +5,7 @@ import { h, icon, logo, render } from "./dom.js";
 import { openPalette } from "./palette.js";
 import { loadSession, resetSession, send } from "./session.js";
 import { applyTheme, saveTheme, storedTheme } from "./theme.js";
-import { popover, toast } from "./ui.js";
+import { openModal, popover, toast } from "./ui.js";
 import login from "./pages/login.js";
 import home from "./pages/home.js";
 import tutor from "./pages/tutor.js";
@@ -119,10 +119,10 @@ function notifications(me, openEsc, close) {
       h("div", { class: "popover-head" }, "Messages from your teacher"),
       replies.length === 0 ? h("p", { class: "empty", style: { padding: "0 14px" } }, "No messages yet.") : null,
       replies.slice(0, 5).map((r) => h(
-        "button", { class: "popover-item", onClick: () => go("#/goals") },
+        "button", { class: "popover-item", onClick: () => { close(); showReplies(replies); } },
         icon("chat"), h("span", { class: "ellipsis" }, r.response),
         r.at ? h("span", { class: "muted small" }, timeAgo(r.at)) : null)),
-      h("button", { class: "popover-foot", onClick: () => go("#/goals") }, "See all in Goals & Plans →"));
+      replies.length ? h("button", { class: "popover-foot", onClick: () => { close(); showReplies(replies); } }, "Read all messages →") : null);
   }).catch(() => undefined);
   return box;
 }
@@ -159,6 +159,16 @@ function accountMenu(me, close, signOut, palette) {
     }, icon("settings"), h("span", null, "Settings")),
     h("button", { class: "popover-item danger", onClick: () => { close(); signOut(); } },
       icon("logout"), h("span", null, "Sign out")));
+}
+
+function showReplies(replies) {
+  openModal("Messages from your teacher", () => h("ul", { class: "list" }, replies.map((r) => h(
+    "li", { class: "list-row", style: { alignItems: "flex-start" } },
+    h("span", { class: "ico" }, icon("chat")),
+    h("div", { class: "body" },
+      r.question ? h("div", { class: "muted small" }, `You wrote: “${r.question}”`) : null,
+      h("div", { style: { whiteSpace: "pre-wrap" } }, r.response),
+      r.at ? h("div", { class: "muted small" }, timeAgo(r.at)) : null)))));
 }
 
 function shell(me, signOut) {
