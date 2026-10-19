@@ -5,10 +5,10 @@ import { GENDERS } from "../people.js";
 import { toast } from "../ui.js";
 
 const FEATURES = [
-  ["target", "Set a goal, plan the steps, then practise with feedback"],
-  ["bot", "A tutor that explains why it suggests each next step"],
-  ["book", "Answers grounded in your course notes, with sources"],
-  ["shield", "Your learning data is stored under a pseudonym; you can delete your account any time"],
+  ["target", "Goals and plans", "Set a goal, plan the steps, then practise with feedback."],
+  ["bot", "An AI tutor", "Explains why it suggests each next step."],
+  ["book", "Grounded answers", "Built on your course notes, with sources."],
+  ["shield", "Private by design", "Learning data under a pseudonym; delete your account any time."],
 ];
 
 /** 0-4: length and variety of characters. */
@@ -345,13 +345,16 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
     render(root, h(
       "div", { class: "login-wrap" },
       h("section", { class: "login-art" },
-        h("div", { class: "brand" }, logo(),
+        h("div", { class: "hero-brand" }, h("span", { class: "hero-logo" }, logo()),
           h("div", null, h("b", null, "Mentora"), h("small", null, "Self-learning strategy tutor"))),
-        h("div", null,
-          h("h2", null, "Learn how you learn: plan, practise, reflect."),
-          h("p", null, "Mentora helps you set goals, work through course material with an AI tutor, and look back on what worked."),
-          h("ul", null, FEATURES.map(([name, t]) => h("li", null, icon(name), t)))),
-        h("p", { class: "foot small" }, "Students connect with their teacher by user id.")),
+        h("div", { class: "hero-main" },
+          h("span", { class: "hero-pill" }, icon("sparkle"), "For students and teachers"),
+          h("h2", null, "Learn how you learn: ", h("span", { class: "hero-accent" }, "plan, practise, reflect.")),
+          h("p", { class: "hero-lead" }, "Mentora helps you set goals, work through course material with an AI tutor, and look back on what worked."),
+          h("ul", { class: "hero-features" }, FEATURES.map(([name, head, text]) => h("li", null,
+            h("span", { class: "hero-ico" }, icon(name)),
+            h("div", null, h("b", null, head), h("span", null, text)))))),
+        h("p", { class: "foot" }, "Students join their teacher with a 10-digit class code.")),
       h("section", { class: "login-form" },
         h("div", { class: "card auth-card" },
           st.mode === "signin" || st.mode === "signup"
