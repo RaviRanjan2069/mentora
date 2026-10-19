@@ -252,15 +252,13 @@ class Settings(BaseSettings):
     session_secret: SecretStr = SecretStr("dev-only-session-secret-change-me")
     # Dev login lets you pick learner/teacher without Moodle. Turn it off in production.
     dev_login: bool = True
-    # When set, dev login as a teacher needs this code (public demos without Moodle).
+    # When set, dev login as a teacher needs this code (account sign-up does not use it).
     dev_teacher_code: SecretStr = SecretStr("")
     # Email through Brevo (verification and password-reset links). Empty key: links are only
     # logged and new accounts count as verified (local development).
     brevo_api_key: SecretStr = SecretStr("")
     mail_from: str = ""
     mail_from_name: str = "Mentora"
-    # Where "Request a teacher code" emails go (the administrator). Empty: the sender address.
-    admin_email: str = ""
     # LTI launches inside a Moodle iframe need SameSite=None + HTTPS cookies.
     cookie_samesite: Literal["lax", "strict", "none"] = "lax"
     cookie_https_only: bool = False

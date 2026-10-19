@@ -274,7 +274,7 @@ data stays keyed by the pseudonym `Account.learner_id`, so analytics and the off
 unchanged. Passwords are hashed with scrypt; 5 wrong passwords lock an account for 15 minutes;
 sign-up, sign-in and email requests are rate-limited per IP; the session cookie carries the
 account's `session_version`, so a password change or reset signs out every other device.
-Teacher sign-up needs the teacher code. A student finds a teacher by user id and sends a request;
+Anyone can sign up as a teacher (no shared code since 2026-10-19); each teacher gets a permanent random 10-digit class code. A student finds a teacher by user id and sends a request;
 the teacher accepts or declines (`teacher_links`). A teacher with an account sees only their
 accepted students; escalations from students without a teacher go to every teacher so a distress
 message always reaches someone. Moodle and development-sign-in teachers still see everyone.

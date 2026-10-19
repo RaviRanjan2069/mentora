@@ -54,7 +54,6 @@ def signup(app: FastAPI, username: str, role: str = "learner", **extra: object) 
         "name": username.title(),
         "gender": "female",
         "accept_privacy": True,
-        **({"teacher_code": CODE} if role == "teacher" else {}),
         **extra,
     }
     r = c.post("/api/auth/signup", json=body)
@@ -91,7 +90,7 @@ def test_signup_rules_and_teacher_code(app: FastAPI, mail: OutboxMailer) -> None
     assert c.post("/api/auth/signup", json={**base, "password": "short"}).status_code == 422
     assert c.post("/api/auth/signup", json={**base, "password": "asha.k"}).status_code == 422
     teacher = {**base, "role": "teacher", "username": "dr.k", "email": "k@example.com"}
-    assert c.post("/api/auth/signup", json={**teacher, "teacher_code": "wrong"}).status_code == 403
+    assert TestClient(app).post("/api/auth/signup", json=teacher).status_code == 201  # no code
     r = c.post("/api/auth/signup", json=base)
     assert r.status_code == 201 and r.json()["verification_sent"] is True
     me = c.get("/api/me").json()
@@ -322,7 +321,6 @@ def test_teacher_gets_a_permanent_class_code(app: FastAPI, mail: OutboxMailer) -
         "email": "late@example.com",
         "password": "correct horse 42",
         "name": "Late",
-        "teacher_code": CODE,
         "accept_privacy": True,
     }
     assert c.post("/api/auth/signup", json={**base, "class_code": suggested}).status_code == 409
@@ -362,17 +360,3 @@ def test_deleting_a_teacher_removes_their_code(app: FastAPI, mail: OutboxMailer)
     )
     with app.state.session_factory() as db:
         assert db.count(m.ClassCode) == 0
-
-
-def test_request_teacher_code_emails_the_admin(app: FastAPI, mail: OutboxMailer) -> None:
-    app.state.settings = app.state.settings.model_copy(update={"admin_email": "boss@example.com"})
-    c = TestClient(app)
-    body = {"name": " Ravi  Kumar ", "email": "Ravi@Example.com", "message": "I teach Python."}
-    assert c.post("/api/auth/request-teacher-code", json=body).status_code == 202
-    to, subject, text = mail.sent[-1]
-    assert to == "boss@example.com" and "Ravi Kumar" in subject
-    assert "ravi@example.com" in text and "I teach Python." in text
-    assert CODE not in text  # the code itself is never emailed automatically
-    assert mail.reply_to[-1] == "ravi@example.com"
-    bad = c.post("/api/auth/request-teacher-code", json={**body, "email": "not-an-email"})
-    assert bad.status_code == 422

@@ -3,7 +3,6 @@ student -> teacher requests (docs/decisions.md D41)."""
 
 from __future__ import annotations
 
-import hmac
 import logging
 import re
 from datetime import UTC, datetime, timedelta
@@ -141,7 +140,6 @@ class SignupIn(BaseModel):
     password: str = Field(min_length=1, max_length=128)
     name: str = Field(min_length=1, max_length=80)
     gender: Gender = "prefer_not_to_say"
-    teacher_code: str = Field(default="", max_length=200)
     # The class code the sign-up form suggested (teachers); empty: a random one.
     class_code: str = Field(default="", max_length=20)
     accept_privacy: bool
@@ -154,42 +152,8 @@ def auth_options(request: Request) -> dict[str, bool]:
     return {
         "dev_login": s.dev_login,
         "email": _mailer(request).configured,
-        "teacher_signup": bool(s.dev_teacher_code.get_secret_value()),
+        "teacher_signup": True,
     }
-
-
-class TeacherCodeRequestIn(BaseModel):
-    name: str = Field(min_length=1, max_length=80)
-    email: str = Field(min_length=5, max_length=254)
-    message: str = Field(default="", max_length=500)
-
-
-@router.post("/auth/request-teacher-code", status_code=202)
-def request_teacher_code(body: TeacherCodeRequestIn, request: Request) -> dict[str, bool]:
-    """Emails the administrator, who decides whether to send this person the teacher code."""
-    _limit(request, "email")
-    s = _settings(request)
-    admin = s.admin_email or s.mail_from
-    if not s.dev_teacher_code.get_secret_value() or not admin:
-        raise HTTPException(503, "Teacher codes cannot be requested here. Please ask your school.")
-    try:
-        email = acc.normalize_email(body.email)
-    except AccountError as exc:
-        raise HTTPException(422, str(exc)) from exc
-    name = " ".join(body.name.split())
-    note = body.message.strip() or "(no message)"
-    sent = _send(
-        request,
-        admin,
-        f"Teacher code request from {name}",
-        f"{name} <{email}> asked for the Mentora teacher code.\n\nTheir message:\n{note}\n\n"
-        "If you know this person and want them to create a teacher account, reply to this email "
-        "with the teacher code. If not, ignore it.",
-        reply_to=email,
-    )
-    if not sent:
-        raise HTTPException(502, "We could not send your request now. Please try again later.")
-    return {"sent": True}
 
 
 @router.get("/auth/class-code-suggestion")
@@ -222,12 +186,6 @@ def signup(body: SignupIn, request: Request, db: Db) -> dict[str, Any]:
         acc.check_password_rules(body.password, username, email, s.accounts.password_min)
     except AccountError as exc:
         raise HTTPException(422, str(exc)) from exc
-    if body.role == "teacher":
-        code = s.dev_teacher_code.get_secret_value()
-        if not code or not hmac.compare_digest(body.teacher_code.encode(), code.encode()):
-            raise HTTPException(
-                403, "The teacher code is not right. Ask the Mentora administrator."
-            )
     class_code = ""
     if body.role == "teacher" and body.class_code.strip():
         class_code = "".join(body.class_code.split())

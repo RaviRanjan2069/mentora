@@ -26,12 +26,11 @@ each database round trip is a few milliseconds; a tutor turn makes about 25.
 | `MENTORA_RAG__EMBEDDER` / `RERANKER` / `GROUNDING_JUDGE` | `hashing` / `lexical` / `lexical` | No model downloads; torch is never imported, so the API fits in 512 MB. **The DB must be seeded with the same embedder.** |
 | `MENTORA_RAG__ANSWER_MODE` | `course_only` | Offline templates can only answer from the notes; `open` needs a real model. |
 | `MENTORA_DEV_LOGIN` | `true` | No Moodle: sign in from the login page. |
-| `MENTORA_DEV_TEACHER_CODE` | secret | Without it, anyone could sign in as a teacher. |
+| `MENTORA_DEV_TEACHER_CODE` | secret | Only for the developer sign-in form (off in production). Account sign-up needs no code: every teacher gets a random 10-digit class code. |
 | `MENTORA_COOKIE_HTTPS_ONLY` | `true` | Render serves HTTPS. |
 | `MENTORA_SESSION_SECRET`, `MENTORA_PSEUDONYM_SALT` | long random | Keep the salt fixed once learners exist. |
 | `MENTORA_DEV_LOGIN` | `false` once accounts are used | Everyone signs up / in with an account (D41). |
 | `MENTORA_BREVO_API_KEY`, `MENTORA_MAIL_FROM`, `MENTORA_MAIL_FROM_NAME` | secret / your verified sender / `Mentora` | Verification and password-reset emails. |
-| `MENTORA_ADMIN_EMAIL` | your inbox (optional) | Where "Request a teacher code" emails from the sign-up page go; empty means `MENTORA_MAIL_FROM`. Reply to the person with the teacher code if you trust them. |
 | `MENTORA_PUBLIC_BASE_URL` | `https://<service>.onrender.com` | Links in emails point here. |
 
 ## First deployment

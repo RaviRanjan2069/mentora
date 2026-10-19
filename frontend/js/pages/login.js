@@ -66,8 +66,8 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
   const st = {
     mode: initialMode, busy: false, error: null, done: null, options: { dev_login: false, email: false, teacher_signup: true },
     login: "", password: "", role: "learner", name: "", username: "", email: "", password2: "",
-    gender: "prefer_not_to_say", teacherCode: "", accept: false, userCheck: null, devName: "", devRole: "learner", devCode: "",
-    ask: { open: false, message: "", busy: false, error: null, done: false }, classCode: "",
+    gender: "prefer_not_to_say", accept: false, userCheck: null, devName: "", devRole: "learner", devCode: "",
+    classCode: "",
   };
   let checkTimer = 0;
 
@@ -108,8 +108,7 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
     run(async () => {
       const r = await api.post("/api/auth/signup", {
         role: st.role, username: st.username.trim(), email: st.email.trim(), password: st.password,
-        name: st.name.trim(), gender: st.gender, teacher_code: st.role === "teacher" ? st.teacherCode : "",
-        class_code: st.role === "teacher" ? st.classCode : "",
+        name: st.name.trim(), gender: st.gender, class_code: st.role === "teacher" ? st.classCode : "",
         accept_privacy: st.accept,
       }).catch((err) => {
         if (st.role === "teacher" && /class code/.test(errorText(err))) suggestCode(true);
@@ -140,50 +139,6 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
         h("button", { type: "button", class: "btn small", onClick: () => suggestCode(true) }, icon("sparkle"), " Another code")),
       h("div", { class: "hint" },
         "Your students type this code to ask to join your class. It becomes permanent when you create your account."));
-  }
-
-  async function askForCode() {
-    const ask = st.ask;
-    ask.error = null;
-    if (!st.name.trim() || !st.email.trim()) {
-      ask.error = "Fill in your full name and email above first, so the administrator can reply to you.";
-      paint();
-      return;
-    }
-    ask.busy = true;
-    paint();
-    try {
-      await api.post("/api/auth/request-teacher-code", { name: st.name.trim(), email: st.email.trim(), message: ask.message.trim() });
-      ask.done = true;
-    } catch (e) {
-      ask.error = errorText(e);
-    }
-    ask.busy = false;
-    paint();
-  }
-
-  function askCodePanel() {
-    const ask = st.ask;
-    if (ask.done) {
-      return h("div", { class: "ask-code done" }, icon("check"),
-        h("span", null, `Request sent. The administrator will reply to ${st.email.trim()} with the code if they approve. Check your spam folder too.`));
-    }
-    if (!ask.open) {
-      return h("div", { class: "hint" }, "Don't have a code? ",
-        h("button", { type: "button", class: "link-btn inline", onClick: () => { ask.open = true; paint(); } }, "Request a teacher code"));
-    }
-    return h("div", { class: "ask-code" },
-      h("p", null, "We will email the Mentora administrator your name and email from this form. They decide whether to send you the code."),
-      h("label", { class: "field" }, h("span", null, "Message (optional)"),
-        h("textarea", {
-          rows: "3", maxlength: "500", value: ask.message, "data-key": "askMessage",
-          placeholder: "e.g. I teach Python at ABC College.",
-          onInput: (e) => { ask.message = e.target.value; },
-        })),
-      h("div", { class: "ask-code-actions" },
-        h("button", { type: "button", class: "btn primary small", disabled: ask.busy, onClick: askForCode }, ask.busy ? "Sending…" : "Send request"),
-        h("button", { type: "button", class: "btn small", disabled: ask.busy, onClick: () => { ask.open = false; ask.error = null; paint(); } }, "Cancel")),
-      ask.error ? h("p", { class: "error", role: "alert" }, ask.error) : null);
   }
 
   const forgot = (e) => {
@@ -310,16 +265,6 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
         h("span", null, "Gender"),
         h("select", { onChange: (e) => { st.gender = e.target.value; } },
           GENDERS.map(([v, l]) => h("option", { value: v, selected: st.gender === v }, l)))),
-      st.role === "teacher"
-        ? h("label", { class: "field" },
-            h("span", null, "Teacher code"),
-            h("input", {
-              type: "password", value: st.teacherCode, "data-key": "teacherCode", autocomplete: "off", required: true,
-              onInput: (e) => { st.teacherCode = e.target.value; },
-            }),
-            h("div", { class: "hint" }, "Teacher accounts need the code from the Mentora administrator."))
-        : null,
-      st.role === "teacher" ? askCodePanel() : null,
       st.role === "teacher" ? classCodeField() : null,
       h("label", { class: "check-line" },
         h("input", { type: "checkbox", checked: st.accept, onChange: (e) => { st.accept = e.target.checked; } }),
