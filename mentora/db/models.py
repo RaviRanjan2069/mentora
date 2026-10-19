@@ -315,7 +315,7 @@ class Consent(Document):
     recorded_at: datetime = field(default_factory=now)
 
 
-# --- accounts (sign-up with a permanent user id; docs/decisions.md D41) -------------------------
+# --- accounts (sign-up with a permanent user id; docs/decisions.md D41) --------------------------
 
 ROLES = ("learner", "teacher")
 GENDERS = ("female", "male", "non_binary", "prefer_not_to_say")
@@ -422,7 +422,7 @@ class EmailToken(Document):
         one_of(self.purpose, ("verify", "reset"), "purpose")
 
 
-# --- subjects: teachers' folders, materials and quizzes (D42) -----------------------------------
+# --- subjects: teachers' folders, materials and quizzes (D42) ------------------------------------
 
 SUBJECT = Ref("subjects", "cascade")
 FOLDER = Ref("folders", "cascade")
@@ -552,7 +552,7 @@ class QuizAttempt(Document):
     late: bool = False  # submitted after the time limit
 
 
-# --- question banks and adaptive practice (D43) ---------------------------------------------------
+# --- question banks and adaptive practice (D43) --------------------------------------------------
 
 
 @dataclass(kw_only=True)
@@ -607,6 +607,43 @@ class PracticeRound(Document):
     finished_at: datetime | None = None
 
 
+# --- learning roadmaps (D44) ---------------------------------------------------------------------
+
+
+@dataclass(kw_only=True)
+class Roadmap(Document):
+    """A student's week-by-week plan for a goal such as "Learn Java from basic to advanced".
+    ``weeks`` is [{n, title, stage, topics, tasks: [{id, kind, text, topics, done, ...}]}];
+    ``adaptations`` is [{key, at, text}], the changes Mentora made and why."""
+
+    __collection__ = "roadmaps"  # (student_id, status)
+    __refs__: ClassVar[Mapping[str, Ref]] = {
+        "student_id": ACCOUNT,
+        "subject_id": Ref("subjects", "set_null"),
+    }
+
+    id: int = 0
+    student_id: str
+    goal: str
+    subject: str
+    subject_id: int | None = None
+    level: str = "beginner"
+    pace: str = "steady"
+    source: str = "curated"  # curated template, or written by the AI model
+    weeks: list[dict[str, Any]] = field(default_factory=list)
+    adaptations: list[dict[str, Any]] = field(default_factory=list)
+    status: str = "active"
+    start_date: datetime = field(default_factory=now)
+    created_at: datetime = field(default_factory=now)
+    updated_at: datetime = field(default_factory=now)
+    completed_at: datetime | None = None
+
+    def validate(self) -> None:
+        one_of(self.status, ("active", "completed", "archived"), "status")
+        one_of(self.level, ("beginner", "some", "experienced"), "level")
+        one_of(self.pace, ("steady", "fast"), "pace")
+
+
 MODELS: tuple[type[Document], ...] = (
     Learner,
     Course,
@@ -637,5 +674,6 @@ MODELS: tuple[type[Document], ...] = (
     QuizAttempt,
     BankQuestion,
     PracticeRound,
+    Roadmap,
 )
 BY_COLLECTION: dict[str, type[Document]] = {model.__collection__: model for model in MODELS}

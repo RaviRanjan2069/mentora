@@ -55,6 +55,7 @@ What SQL used to enforce is enforced by `mentora/db/store.py`:
 | `quiz_attempts` | A student's attempt | `quiz_id`, `student_id`, `answers`, `results`, `score`, `max_score`, `started_at`, `submitted_at`, `late` |
 | `bank_questions` | A subject's practice questions (D43) | `subject_id`, `topic`, `text`, `options`, `answer` (index), `explanation`, `difficulty`, `seed_key` (starter questions), `author_id` (teachers' questions), `edited`, `hidden` |
 | `practice_rounds` | A student's round of 10 practice questions | `student_id`, `subject_id`, `plan` (question, topic, why chosen, shown option order), `results` (choice, correct, time), `focus`, `score`, `total`, `started_at`, `finished_at` |
+| `roadmaps` | A student's week-by-week plan for a goal (D44) | `student_id`, `goal`, `subject`, `subject_id`, `level`, `pace`, `source` (curated or ai), `weeks` (embedded tasks with done state and progress), `adaptations` (what changed and why), `status`, `start_date` |
 | `email_tokens` | One-time email links | `_id` = sha256 of the token, `purpose` ∈ {verify, reset}, `expires_at`, `used` |
 | `counters`, `meta` | Integer id sequences; schema version | |
 

@@ -21,6 +21,7 @@ from mentora.api.routes import (
     learner,
     learning,
     rag,
+    roadmaps,
     subjects,
     teacher,
 )
@@ -95,6 +96,7 @@ def create_app(
         accounts.router,
         subjects.router,
         learning.router,
+        roadmaps.router,
         learner.router,
         teacher.router,
         console.router,

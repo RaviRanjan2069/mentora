@@ -60,7 +60,7 @@ def starter_files() -> list[dict[str, Any]]:
     explanation, difficulty?], ...]}]."""
     out = []
     for entry in sorted(resources.files("mentora.subjects_data").iterdir(), key=lambda e: e.name):
-        if entry.name.endswith(".json"):
+        if entry.name.endswith(".json") and entry.name != "roadmaps.json":
             out.append(json.loads(entry.read_text(encoding="utf-8")))
     return out
 

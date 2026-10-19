@@ -9,7 +9,7 @@ import { popover, toast } from "./ui.js";
 import login from "./pages/login.js";
 import home from "./pages/home.js";
 import tutor from "./pages/tutor.js";
-import learning from "./pages/learning.js";
+import goals from "./pages/goals.js";
 import myLearning from "./pages/my_learning.js";
 import practice from "./pages/practice.js";
 import resources from "./pages/resources.js";
@@ -33,7 +33,7 @@ const STUDENT = [
   { path: "/subjects", label: "Subjects", icon: "layers", title: "Subjects", sub: "Choose a subject and teacher, read their material and take their quizzes", page: subjects },
   { path: "/tutor", label: "AI Tutor", icon: "bot", title: "AI Tutor", sub: "Plan · Learn · Reflect · Improve", page: tutor },
   { path: "/learning", label: "My Learning", icon: "book", title: "My Learning", sub: "Practise any subject; questions adapt to the topics you miss most", page: myLearning },
-  { path: "/goals", label: "Goals & Plans", icon: "target", title: "Goals & Plans", sub: "Your goals, plans, tutor suggestions and what Mentora remembers", page: learning },
+  { path: "/goals", label: "Goals & Plans", icon: "target", title: "Goals & Plans", sub: "Turn a goal into a week-by-week roadmap that adapts to you", page: goals },
   // Not in the menu (My Learning is the practice page): opened from Home's suggestions.
   { path: "/practice", label: "Practice", icon: "practice", title: "Practice Questions", sub: "Test your understanding and get feedback", page: practice, hidden: true },
   // Not in the menu: opened from the tutor's source links and Home suggestions.

@@ -120,6 +120,9 @@ INDEXES: dict[str, list[IndexModel]] = {
         ),
         IndexModel([("subject_id", ASCENDING)], name="ix_rounds_subject"),
     ],
+    "roadmaps": [
+        IndexModel([("student_id", ASCENDING), ("status", ASCENDING)], name="ix_roadmaps_student")
+    ],
 }
 
 _MOCK_CLIENTS: dict[str, Any] = {}

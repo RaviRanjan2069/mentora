@@ -327,3 +327,22 @@ below 60%, both after at least three answers. The dashboard shows subject and to
 percentages, strengths and weaknesses, and each round's score over time; a folder's Analysis
 tab shows its enrolled students' practice in that subject.
 
+## D44 — Goals & Plans: week-by-week roadmaps that adapt
+
+Goals & Plans starts with a goal search ("How to learn Java from basic to advanced"). A goal
+about one of the eight subjects (matched by name and common aliases such as DSA, SQL or full
+stack) gets a hand-written roadmap (`mentora/subjects_data/roadmaps.json`): units from basics
+through intermediate and advanced topics to a project, each with study topics, practice on the
+subject's question-bank topics and a hands-on exercise, plus a checkpoint at the end of each
+stage. The student's level shortens or skips the basics; the pace puts one or two units in a
+week. Other goals are drafted by the AI tutor model when it is online (checked against a
+schema, labelled as AI-written and possibly wrong, and taking up to a minute); when it is
+offline the student is told which subjects have ready-made roadmaps.
+Practice, review and checkpoint tasks tick themselves from My Learning answers given after the
+roadmap was made (10 answers at 60%, checkpoints 15 at 70%); the rest the student ticks.
+Adapting is rule-based and logged with its reason: a topic from the weeks so far scored below
+60% (three or more answers) gets a review task in the current week; a future week whose topics
+the student already masters (80%+ with five or more answers) becomes optional; falling two or
+more weeks behind moves the dates. The earlier goals, plans and tutor memory stay below the
+roadmaps under "From your tutor sessions".
+

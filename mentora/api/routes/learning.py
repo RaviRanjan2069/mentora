@@ -232,20 +232,34 @@ def _round_out(db: Store, rnd: m.PracticeRound) -> RoundOut:
 
 
 @router.post("/learning/subjects/{subject_id}/rounds", status_code=201)
-def start_round(subject_id: int, user: Learner, db: Db) -> RoundOut:
+def start_round(subject_id: int, user: Learner, db: Db, topics: str | None = None) -> RoundOut:
     """The next round of 10, leaning towards the student's weak topics. An unfinished round in
-    this subject is returned instead of starting another."""
+    this subject is returned instead of starting another. ``topics`` (comma-separated) limits
+    the round to those topics (a roadmap week's practice); it closes an unfinished round first."""
     pr.ensure_starter_questions(db)
     subject = _subject(db, subject_id)
     account = _account(db, user)
     rounds = _rounds(db, account.id, subject.id)
     open_ = next((r for r in reversed(rounds) if r.finished_at is None), None)
-    if open_ is not None:
+    wanted = [t.strip() for t in (topics or "").split(",") if t.strip()]
+    if open_ is not None and not wanted:
         return _round_out(db, open_)
+    if open_ is not None:  # a focused round replaces the unfinished one
+        if open_.results:
+            open_.finished_at, open_.total = datetime.now(UTC), len(open_.results)
+        else:
+            db.delete(open_)
+            rounds.remove(open_)
+        db.commit()
+    pool = _visible(db, subject.id)
+    if wanted:
+        pool = [q for q in pool if q.topic in wanted]
+        if not pool:
+            raise HTTPException(422, "There are no questions on those topics yet.")
     finished = [r for r in rounds if r.finished_at is not None]
     try:
         plan = pr.plan_round(
-            _visible(db, subject.id),
+            pool,
             pr.results_of(rounds),
             last_round=[p["id"] for p in finished[-1].plan] if finished else (),
         )
@@ -264,7 +278,7 @@ def start_round(subject_id: int, user: Learner, db: Db) -> RoundOut:
             }
             for p in plan.picks
         ],
-        focus=plan.focus,
+        focus=wanted or plan.focus,
         total=len(plan.picks),
     )
     db.add(rnd)
