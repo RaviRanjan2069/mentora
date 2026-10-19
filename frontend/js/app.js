@@ -10,6 +10,7 @@ import login from "./pages/login.js";
 import home from "./pages/home.js";
 import tutor from "./pages/tutor.js";
 import learning from "./pages/learning.js";
+import myLearning from "./pages/my_learning.js";
 import practice from "./pages/practice.js";
 import resources from "./pages/resources.js";
 import progress from "./pages/progress.js";
@@ -31,7 +32,8 @@ const STUDENT = [
   { path: "/", label: "Home", icon: "home", title: "", sub: "", page: home },
   { path: "/subjects", label: "Subjects", icon: "layers", title: "Subjects", sub: "Choose a subject and teacher, read their material and take their quizzes", page: subjects },
   { path: "/tutor", label: "AI Tutor", icon: "bot", title: "AI Tutor", sub: "Plan · Learn · Reflect · Improve", page: tutor },
-  { path: "/learning", label: "My Learning", icon: "book", title: "My Learning", sub: "Your goals, plans, tutor suggestions and what Mentora remembers", page: learning },
+  { path: "/learning", label: "My Learning", icon: "book", title: "My Learning", sub: "Practise any subject; questions adapt to the topics you miss most", page: myLearning },
+  { path: "/goals", label: "Goals & Plans", icon: "target", title: "Goals & Plans", sub: "Your goals, plans, tutor suggestions and what Mentora remembers", page: learning },
   { path: "/practice", label: "Practice", icon: "practice", title: "Practice Questions", sub: "Test your understanding and get feedback", page: practice },
   // Not in the menu: opened from the tutor's source links and Home suggestions.
   { path: "/resources", label: "Resources", icon: "folder", title: "Course notes", sub: "The passage the tutor used", page: resources, hidden: true },
@@ -116,10 +118,10 @@ function notifications(me, openEsc, close) {
       h("div", { class: "popover-head" }, "Messages from your teacher"),
       replies.length === 0 ? h("p", { class: "empty", style: { padding: "0 14px" } }, "No messages yet.") : null,
       replies.slice(0, 5).map((r) => h(
-        "button", { class: "popover-item", onClick: () => go("#/learning") },
+        "button", { class: "popover-item", onClick: () => go("#/goals") },
         icon("chat"), h("span", { class: "ellipsis" }, r.response),
         r.at ? h("span", { class: "muted small" }, timeAgo(r.at)) : null)),
-      h("button", { class: "popover-foot", onClick: () => go("#/learning") }, "See all in My Learning →"));
+      h("button", { class: "popover-foot", onClick: () => go("#/goals") }, "See all in Goals & Plans →"));
   }).catch(() => undefined);
   return box;
 }

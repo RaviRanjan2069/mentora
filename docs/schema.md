@@ -53,6 +53,8 @@ What SQL used to enforce is enforced by `mentora/db/store.py`:
 | `resource_chunks` | Parts of an uploaded file (1 MB each) | `_id` = `<resource id>:<n>`, `resource_id`, `n`, `data` |
 | `quizzes` | A teacher's quiz | `folder_id`, `title`, `questions` (embedded: id, kind, text, options, answer, points, topic), `time_limit_min`, `max_attempts`, `show_answers`, `published` |
 | `quiz_attempts` | A student's attempt | `quiz_id`, `student_id`, `answers`, `results`, `score`, `max_score`, `started_at`, `submitted_at`, `late` |
+| `bank_questions` | A subject's practice questions (D43) | `subject_id`, `topic`, `text`, `options`, `answer` (index), `explanation`, `difficulty`, `seed_key` (starter questions), `author_id` (teachers' questions), `edited`, `hidden` |
+| `practice_rounds` | A student's round of 10 practice questions | `student_id`, `subject_id`, `plan` (question, topic, why chosen, shown option order), `results` (choice, correct, time), `focus`, `score`, `total`, `started_at`, `finished_at` |
 | `email_tokens` | One-time email links | `_id` = sha256 of the token, `purpose` ∈ {verify, reset}, `expires_at`, `used` |
 | `counters`, `meta` | Integer id sequences; schema version | |
 

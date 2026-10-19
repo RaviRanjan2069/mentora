@@ -108,6 +108,18 @@ INDEXES: dict[str, list[IndexModel]] = {
         ),
         IndexModel([("student_id", ASCENDING)], name="ix_attempts_student"),
     ],
+    "bank_questions": [
+        IndexModel([("subject_id", ASCENDING), ("topic", ASCENDING)], name="ix_bank_subject_topic"),
+        # Not unique: teachers' questions have no seed key (the seeding skips existing keys).
+        IndexModel([("seed_key", ASCENDING)], name="ix_bank_seed_key"),
+    ],
+    "practice_rounds": [
+        IndexModel(
+            [("student_id", ASCENDING), ("subject_id", ASCENDING), ("started_at", ASCENDING)],
+            name="ix_rounds_student_subject",
+        ),
+        IndexModel([("subject_id", ASCENDING)], name="ix_rounds_subject"),
+    ],
 }
 
 _MOCK_CLIENTS: dict[str, Any] = {}

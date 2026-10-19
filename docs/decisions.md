@@ -308,3 +308,22 @@ The analysis uses each student's best attempt per quiz; topics at 75% or more ar
 below 50% weaknesses. The AI tutor still works on the existing course; tying it to each
 folder's material is later work.
 
+## D43 — My Learning: adaptive practice from subject question banks
+
+My Learning is now subject practice; the earlier goals, plans and tutor-memory page moved to
+Goals & Plans. Every subject has a question bank: 100 Mentora starter multiple-choice questions
+per subject (ten topics of ten, in `mentora/subjects_data/*.json`, loaded at start-up; only
+missing ones are added, and questions a teacher edited or hid are never overwritten) plus
+questions its teachers add one by one or by CSV. Starter questions are marked as such and have
+not been reviewed by a teacher; any teacher of the subject may fix or hide them, while
+teachers' own questions can be changed only by their author.
+A student practises in rounds of 10 with immediate feedback and explanations. Rounds adapt:
+topic mastery is (right + 1) / (answered + 2); slots go to topics in proportion to
+(1 - mastery) plus a small share for every topic, with diminishing weight for repeated slots so
+rounds stay mixed; within a topic, questions answered wrong come back first, then unseen ones;
+the previous round's questions are avoided. Options are shuffled per round, so the stored
+option order never gives answers away. A topic is a strength at 75% mastery and a weakness
+below 60%, both after at least three answers. The dashboard shows subject and topic
+percentages, strengths and weaknesses, and each round's score over time; a folder's Analysis
+tab shows its enrolled students' practice in that subject.
+

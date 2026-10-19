@@ -405,3 +405,66 @@ img.photo.md, .photo-md { width: 40px; height: 40px; border-radius: 999px; objec
   .note-text { margin-left: 0; }
 }
 .quiz-q-head select { width: auto; flex: 0 1 240px; }
+
+/* --- my learning (adaptive practice) ------------------------------------------------------------ */
+.mini-ring {
+  --p: 0; flex: none; border-radius: 50%; display: grid; place-items: center;
+  background: conic-gradient(var(--c, var(--surface-3)) calc(var(--p) * 1%), var(--surface-3) 0);
+}
+.mini-ring span { display: grid; place-items: center; width: 76%; height: 76%; border-radius: 50%; background: var(--surface-1); font-weight: 800; font-size: 14px; }
+.mini-ring.good { --c: var(--ok); }
+.mini-ring.mid { --c: var(--warn); }
+.mini-ring.low { --c: var(--danger); }
+.learn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.learn-card {
+  --h: 221; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: var(--radius);
+  border: 1px solid var(--line); background:
+    radial-gradient(400px 120px at 0% 0%, hsl(var(--h) 80% 60% / .12), transparent 70%), var(--surface-1);
+  box-shadow: var(--shadow); transition: transform .15s, border-color .15s;
+}
+.learn-card:hover { transform: translateY(-1px); border-color: hsl(var(--h) 70% 55% / .6); }
+.learn-card-top { display: flex; gap: 12px; align-items: center; }
+.learn-card-title { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.learn-card-title b { font-size: 16px; }
+.learn-card-facts { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--text-secondary); }
+.learn-card-facts span { display: inline-flex; align-items: center; gap: 5px; }
+.learn-card-facts svg { width: 14px; height: 14px; }
+.learn-card > .row { margin-top: auto; }
+.learn-focus { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.sw-grid { display: grid; gap: 12px; }
+.sw-row { display: grid; grid-template-columns: minmax(120px, 180px) 1fr auto; gap: 12px; align-items: center; }
+.topic-list.wide li { grid-template-columns: minmax(110px, 200px) 1fr 48px 92px 44px; }
+.practice-options { display: grid; gap: 10px; }
+.practice-option {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 12px 14px; border-radius: 12px;
+  border: 1.5px solid var(--line); background: var(--surface-1); cursor: pointer; font-size: 15px; transition: border-color .12s, background .12s;
+}
+.practice-option:hover:not(:disabled) { border-color: var(--brand); background: var(--brand-soft); }
+.practice-option:disabled { cursor: default; }
+.practice-option > span:nth-child(2) { flex: 1; }
+.practice-option svg { width: 18px; height: 18px; flex: none; }
+.practice-option.right { border-color: var(--ok); background: var(--ok-soft); }
+.practice-option.right svg { color: var(--ok); }
+.practice-option.wrong { border-color: var(--danger); background: var(--danger-soft); }
+.practice-option.wrong svg { color: var(--danger); }
+.opt-key { display: grid; place-items: center; width: 26px; height: 26px; flex: none; border-radius: 8px; background: var(--surface-2); font-weight: 700; font-size: 13px; }
+.practice-option.right .opt-key { background: var(--ok); color: #fff; }
+.practice-option.wrong .opt-key { background: var(--danger); color: #fff; }
+.feedback { margin-top: 14px; padding: 12px 14px; border-radius: 12px; border-left: 4px solid; }
+.feedback p { margin: 4px 0 0; }
+.feedback.good { background: var(--ok-soft); border-color: var(--ok); }
+.feedback.bad { background: var(--danger-soft); border-color: var(--danger); }
+.bank-list { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 12px; }
+.bank-q { padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); display: grid; gap: 6px; }
+.bank-q.is-hidden { opacity: .6; }
+.bank-text { font-weight: 500; }
+.bank-options { margin: 0; padding-left: 22px; list-style: upper-alpha; font-size: 14px; display: grid; gap: 2px; }
+.bank-options li.right { color: var(--ok); font-weight: 600; }
+.bank-options li svg { width: 14px; height: 14px; vertical-align: -2px; margin-left: 4px; }
+.error-text { color: var(--danger); }
+label.btn input[type="file"] { display: none; }
+@media (max-width: 640px) {
+  .sw-row { grid-template-columns: 1fr; gap: 6px; }
+  .topic-list.wide li { grid-template-columns: minmax(80px, 1fr) 1fr 40px; }
+  .topic-list.wide li > .badge, .topic-list.wide li > .muted { display: none; }
+}

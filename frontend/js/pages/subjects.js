@@ -4,10 +4,11 @@ import { api, errorText, pct, timeAgo } from "../api.js";
 import { h, hashParam, icon, plural, render } from "../dom.js";
 import { photoOf } from "../people.js";
 import { errorLine, openDrawer, skeleton, toast } from "../ui.js";
+import { practiceSection, questionBank } from "./bank.js";
 import { editQuiz, percent, quizResult, takeQuiz } from "./quiz.js";
 
 const HUES = [221, 262, 160, 24, 340, 190, 45, 290];
-const hue = (name) => HUES[[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % HUES.length];
+export const hue = (name) => HUES[[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % HUES.length];
 
 export function fmtSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -15,7 +16,7 @@ export function fmtSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function subjectBadge(name, big = false) {
+export function subjectBadge(name, big = false) {
   return h("span", { class: `subject-badge ${big ? "big" : ""}`, style: { "--h": hue(name) } }, name.slice(0, 1).toUpperCase());
 }
 
@@ -169,7 +170,7 @@ function browse(root, me, go) {
 function folderPage(root, me, folderId, tab, go) {
   const teacher = me.role === "teacher";
   const tabs = teacher
-    ? [["materials", "Materials", "file"], ["quizzes", "Quizzes", "target"], ["students", "Students", "users"], ["analysis", "Analysis", "bars"]]
+    ? [["materials", "Materials", "file"], ["quizzes", "Quizzes", "target"], ["bank", "Question bank", "layers"], ["students", "Students", "users"], ["analysis", "Analysis", "bars"]]
     : [["materials", "Materials", "file"], ["quizzes", "Quizzes", "target"], ["results", "My results", "trend"]];
   const current = tabs.some(([k]) => k === tab) ? tab : "materials";
   const st = { folder: null, editAbout: false, about: "" };
@@ -183,7 +184,7 @@ function folderPage(root, me, folderId, tab, go) {
         return;
       }
       paint();
-      const views = { materials, quizzes, students, analysis, results };
+      const views = { materials, quizzes, bank: questionBank, students, analysis, results };
       views[current](body, st.folder, me, go, refresh);
     } catch (e) {
       render(root, errorLine(errorText(e)));
@@ -607,9 +608,12 @@ function analysis(root, folder, me, go) {
                 h("td", null, chips(r.strengths.slice(0, 3), "ok")),
                 h("td", null, chips(r.weaknesses.slice(0, 3), "danger")),
                 h("td", { class: "muted" }, r.last_activity ? timeAgo(r.last_activity) : "never"))))))
-          : null)));
+          : null),
+      practiceSlot));
+    practiceSection(folder).then((el) => render(practiceSlot, el)).catch(() => render(practiceSlot));
   }
 
+  const practiceSlot = h("div");
   render(root, skeleton({ cards: 2, stats: true }));
   load();
 }

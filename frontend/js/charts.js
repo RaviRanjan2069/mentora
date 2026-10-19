@@ -56,7 +56,7 @@ function table(headers, rows) {
 }
 
 /** Line chart over course weeks, 0-100%: legend, end labels, crosshair tooltip. */
-export function lineChart(labels, series) {
+export function lineChart(labels, series, { label = "Class progress by course week", xName = "Week" } = {}) {
   const n = labels.length;
   if (n === 0) return h("p", { class: "empty" }, "No answers logged yet.");
   const W = 560, H = 230, m = { l: 40, r: 70, t: 12, b: 30 };
@@ -86,7 +86,7 @@ export function lineChart(labels, series) {
   const svg = s(
     "svg", {
       class: "chart", viewBox: `0 0 ${W} ${H}`, width: W, style: "max-width:100%;height:auto",
-      role: "img", "aria-label": "Class progress by course week", onMouseleave: hide,
+      role: "img", "aria-label": label, onMouseleave: hide,
     },
     s("g", { class: "grid" }, [0, 0.25, 0.5, 0.75, 1].map((t) => s("g", null,
       s("line", { x1: m.l, x2: m.l + iw, y1: y(t), y2: y(t) }),
@@ -112,7 +112,7 @@ export function lineChart(labels, series) {
     h("div", { class: "legend", style: { marginBottom: 6 } },
       series.map((sr) => h("span", null, h("i", { style: { background: sr.color } }), sr.name))),
     svg, tip,
-    table(["Week", ...series.map((sr) => sr.name)], labels.map((l, i) => [l, ...series.map((sr) => pct(sr.values[i]))])),
+    table([xName, ...series.map((sr) => sr.name)], labels.map((l, i) => [l, ...series.map((sr) => pct(sr.values[i]))])),
   );
 }
 

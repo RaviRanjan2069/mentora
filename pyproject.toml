@@ -50,6 +50,7 @@ include = ["mentora*"]
 
 [tool.setuptools.package-data]
 "mentora.config" = ["*.yaml"]
+"mentora.subjects_data" = ["*.json"]
 "mentora.api" = ["static/*"]
 "mentora.policy" = ["*.yaml"]
 "mentora.safety" = ["*.yaml"]

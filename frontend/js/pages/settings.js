@@ -102,7 +102,7 @@ function privacy() {
     h("h2", null, "Privacy"),
     h("p", { class: "muted" },
       "Mentora stores your activity under a pseudonym, not your name or LMS id. Notes the tutor remembers are listed "
-      + "on My Learning, where you can delete them one by one, or all at once here. Old notes are deleted "
+      + "on Goals & Plans, where you can delete them one by one, or all at once here. Old notes are deleted "
       + "automatically after the retention period."),
     h("div", { class: "row" },
       h("a", { class: "btn", href: "/api/me/export", download: true }, icon("download"), " Download my data"),

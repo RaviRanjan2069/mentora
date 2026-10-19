@@ -552,6 +552,61 @@ class QuizAttempt(Document):
     late: bool = False  # submitted after the time limit
 
 
+# --- question banks and adaptive practice (D43) ---------------------------------------------------
+
+
+@dataclass(kw_only=True)
+class BankQuestion(Document):
+    """A multiple-choice question in a subject's question bank: a Mentora starter question
+    (``seed_key`` set) or one written by a teacher of the subject."""
+
+    __collection__ = "bank_questions"  # (subject_id, topic); seed_key
+    __refs__: ClassVar[Mapping[str, Ref]] = {
+        "subject_id": SUBJECT,
+        "author_id": Ref("accounts", "set_null"),
+    }
+
+    id: int = 0
+    subject_id: int
+    topic: str
+    text: str
+    options: list[str] = field(default_factory=list)
+    answer: int = 0  # index into options
+    explanation: str = ""
+    difficulty: int = 2  # 1 easy, 2 medium, 3 hard
+    seed_key: str | None = None  # starter questions: "<subject key>:<hash of the text>"
+    author_id: str | None = None
+    edited: bool = False  # a starter question changed by a teacher (the seed never overwrites it)
+    hidden: bool = False
+    created_at: datetime = field(default_factory=now)
+    updated_at: datetime = field(default_factory=now)
+
+    def validate(self) -> None:
+        check(2 <= len(self.options) <= 6, "a question needs 2-6 options")
+        check(0 <= self.answer < len(self.options), "the answer must be one of the options")
+        check(self.difficulty in (1, 2, 3), "difficulty is 1, 2 or 3")
+
+
+@dataclass(kw_only=True)
+class PracticeRound(Document):
+    """A student's round of practice questions in one subject, picked for their weak topics.
+    ``plan`` is [{id, topic, reason}]; ``results`` is [{id, topic, choice, correct, at}]."""
+
+    __collection__ = "practice_rounds"  # (student_id, subject_id)
+    __refs__: ClassVar[Mapping[str, Ref]] = {"student_id": ACCOUNT, "subject_id": SUBJECT}
+
+    id: int = 0
+    student_id: str
+    subject_id: int
+    plan: list[dict[str, Any]] = field(default_factory=list)
+    results: list[dict[str, Any]] = field(default_factory=list)
+    focus: list[str] = field(default_factory=list)  # the weak topics this round aims at
+    score: int = 0
+    total: int = 0
+    started_at: datetime = field(default_factory=now)
+    finished_at: datetime | None = None
+
+
 MODELS: tuple[type[Document], ...] = (
     Learner,
     Course,
@@ -580,5 +635,7 @@ MODELS: tuple[type[Document], ...] = (
     ResourceChunk,
     Quiz,
     QuizAttempt,
+    BankQuestion,
+    PracticeRound,
 )
 BY_COLLECTION: dict[str, type[Document]] = {model.__collection__: model for model in MODELS}

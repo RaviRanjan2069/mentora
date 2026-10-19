@@ -13,10 +13,21 @@ from starlette.middleware.sessions import SessionMiddleware
 from mentora import __version__
 from mentora.accounts import RateLimiter
 from mentora.api import lti
-from mentora.api.routes import accounts, auth, console, health, learner, rag, subjects, teacher
+from mentora.api.routes import (
+    accounts,
+    auth,
+    console,
+    health,
+    learner,
+    learning,
+    rag,
+    subjects,
+    teacher,
+)
 from mentora.config import Settings, get_settings
 from mentora.db import StoreFactory, connect, ensure_schema
 from mentora.mail import make_mailer
+from mentora.practice import ensure_starter_questions
 
 STATIC_DIR = Path(__file__).with_name("static")
 # The web app is plain HTML, CSS and JavaScript (ES modules), served as is: no build step.
@@ -49,6 +60,8 @@ def create_app(
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         if own_database:
             ensure_schema(factory.database)  # indexes (idempotent)
+            with factory() as db:  # the starter question banks (adds only missing ones)
+                ensure_starter_questions(db)
         yield
 
     app = FastAPI(
@@ -81,6 +94,7 @@ def create_app(
         auth.router,
         accounts.router,
         subjects.router,
+        learning.router,
         learner.router,
         teacher.router,
         console.router,
