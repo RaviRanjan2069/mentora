@@ -335,19 +335,38 @@ def next_steps(db: Store, orch: Orchestrator, k: Any, practised: set[int]) -> li
 def students_summary(
     db: Store, orch: Orchestrator, now: datetime, only: set[str] | None = None
 ) -> list[dict[str, Any]]:
-    """One row per learner with at least one session (only those in ``only`` when given:
-    a teacher's own students).
+    """One row per learner with at least one session; with ``only`` (a teacher's own students),
+    one row for each of those, including students who have not started yet.
 
     At risk: dropout risk >= 0.5, or accuracy < 40% over at least 5 answers, or an open
     distress escalation."""
     s = orch.settings
     # Learners with at least one session (sessions cascade with their learner).
-    learners = sorted(db.distinct(m.Session, "learner_id"))
-    if only is not None:
-        learners = [lid for lid in learners if lid in only]
+    learners = sorted(db.distinct(m.Session, "learner_id")) if only is None else sorted(only)
     out = []
     for lid in learners:
         starts = _column(db, m.Session, "started_at", {"learner_id": lid})
+        if not starts:  # linked to the teacher but no session yet
+            open_any = db.count(m.Escalation, {"learner_id": lid, "status": "open"})
+            open_distress = db.count(
+                m.Escalation, {"learner_id": lid, "status": "open", "reason": "distress"}
+            )
+            out.append(
+                {
+                    "id": lid,
+                    "learner": display_id(lid),
+                    "simulated": lid.startswith(SIMULATED_PREFIX),
+                    "sessions": 0,
+                    "last_active": None,
+                    "mean_mastery": None,
+                    "quiz_average": None,
+                    "answers": 0,
+                    "dropout_risk": None,
+                    "at_risk": open_distress > 0,
+                    "open_escalations": int(open_any),
+                }
+            )
+            continue
         times = _column(db, m.Event, "timestamp", {"learner_id": lid})
         eng = engagement(
             [_aware(t) for t in starts], [_aware(t) for t in times], [], now, s.learner_model

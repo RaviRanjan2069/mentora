@@ -105,7 +105,8 @@ export default function students(root) {
           h("td", null, r.answers),
           h("td", null, pct(r.dropout_risk)),
           h("td", null,
-            r.at_risk ? h("span", { class: "badge danger" }, "At risk") : h("span", { class: "badge" }, "OK"),
+            r.at_risk ? h("span", { class: "badge danger" }, "At risk")
+              : r.sessions === 0 ? h("span", { class: "badge" }, "Not started") : h("span", { class: "badge" }, "OK"),
             r.open_escalations > 0
               ? h("span", { class: "small", style: { color: "var(--danger)" } }, ` ${r.open_escalations} open`) : null))))),
     ));

@@ -234,6 +234,13 @@ def test_request_accept_and_teacher_sees_only_own_students(
     )
     assert [x["status"] for x in bob.get("/api/me/teachers").json()] == ["declined"]
 
+    # accepted but not started yet: listed straight away, and the details open
+    rows = t1.get("/api/teacher/students").json()
+    assert [(r["username"], r["sessions"], r["at_risk"]) for r in rows] == [("alice", 0, False)]
+    assert t1.get(f"/api/teacher/students/{accepted['learner_id']}").status_code == 200
+    assert t1.get("/api/teacher/overview").status_code == 200
+    assert t1.get("/api/teacher/reports/class.csv").status_code == 200
+
     # both students study; t1 sees only Alice, t2 sees nobody
     for c in (alice, bob):
         assert c.post("/api/sessions").status_code == 200
