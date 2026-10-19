@@ -99,6 +99,9 @@ function openReflection() {
 
 export default function tutor(root) {
   let text = "";
+  // Messages already on screen are redrawn without their entrance animation, so only new
+  // ones fade in (and a reply that is streaming in does not flicker).
+  let shown = 0;
 
   function sendText(body) {
     if (!body.trim() || session.busy) return;
@@ -142,7 +145,11 @@ export default function tutor(root) {
               "button", { class: "starter", disabled: session.busy, onClick: () => sendText(msg) },
               icon(name), h("div", null, h("b", null, title), h("span", null, sub))))))
         : null,
-      session.messages.map(message),
+      session.messages.map((m, i) => {
+        const el = message(m);
+        if (i < shown) el.style.animation = "none";
+        return el;
+      }),
       session.busy && !session.messages.some((m) => m.streaming)
         ? h("div", { class: "msg tutor", "aria-label": "The tutor is replying" },
             h("div", { class: "who" }, icon("bot")),
@@ -187,6 +194,7 @@ export default function tutor(root) {
             h("a", { class: "arrow-btn", href: `#/resources?id=${r.id}`, "aria-label": `Open ${r.section ?? r.id}` }, icon("arrow"))))))),
     ));
     autosize(box);
+    shown = session.messages.length;
     // Each redraw follows the conversation to its newest message (also while a reply streams in).
     messages.scrollTop = messages.scrollHeight;
   }
