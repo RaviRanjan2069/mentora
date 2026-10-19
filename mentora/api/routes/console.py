@@ -16,7 +16,13 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from mentora.analytics import class_overview, student_detail, students_summary
-from mentora.api.deps import User, db_session, orchestrator, require_teacher
+from mentora.api.deps import (
+    User,
+    db_session,
+    orchestrator,
+    require_teacher,
+    visible_learners,
+)
 from mentora.config.settings import Settings
 from mentora.course import item_concept_keys
 from mentora.db import ASC, Store
@@ -41,22 +47,42 @@ UPLOAD_SUFFIXES = TEXT_SUFFIXES | {".pdf", ".pptx", ".yaml", ".yml"}
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
 
+def _with_accounts(db: Db, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Name, user id and photo for students who signed up with an account."""
+    ids = [r["id"] for r in rows]
+    accounts = {a.learner_id: a for a in db.find(m.Account, {"learner_id": {"$in": ids}})}
+    photos = set(
+        db.distinct(m.AccountPhoto, "id", {"id": {"$in": [a.id for a in accounts.values()]}})
+    )
+    for r in rows:
+        a = accounts.get(r["id"])
+        r["name"] = a.name if a else None
+        r["username"] = a.username if a else None
+        r["has_photo"] = bool(a and a.id in photos)
+    return rows
+
+
 @router.get("/overview")
 def overview(user: Teacher, db: Db, orch: Orch) -> dict[str, Any]:
-    return class_overview(db, orch, orch.clock())
+    return class_overview(db, orch, orch.clock(), visible_learners(user, db))
 
 
 @router.get("/students")
 def students(user: Teacher, db: Db, orch: Orch) -> list[dict[str, Any]]:
-    return students_summary(db, orch, orch.clock())
+    return _with_accounts(db, students_summary(db, orch, orch.clock(), visible_learners(user, db)))
 
 
 @router.get("/students/{learner_id}")
 def student(learner_id: str, user: Teacher, db: Db, orch: Orch) -> dict[str, Any]:
-    data = student_detail(db, orch, learner_id, orch.clock())
+    visible = visible_learners(user, db)
+    data = (
+        None
+        if visible is not None and learner_id not in visible
+        else (student_detail(db, orch, learner_id, orch.clock()))
+    )
     if data is None:
         raise HTTPException(404, "No such student")
-    return data
+    return _with_accounts(db, [data])[0]
 
 
 def _local_llm_status(s: Settings) -> tuple[str, str]:
@@ -263,7 +289,7 @@ def models(request: Request, user: Teacher) -> dict[str, Any]:
 
 @router.get("/reports/class.csv")
 def class_csv(user: Teacher, db: Db, orch: Orch) -> Response:
-    rows = students_summary(db, orch, orch.clock())
+    rows = students_summary(db, orch, orch.clock(), visible_learners(user, db))
     buf = io.StringIO()
     fields = [
         "learner",

@@ -315,6 +315,93 @@ class Consent(Document):
     recorded_at: datetime = field(default_factory=now)
 
 
+# --- accounts (sign-up with a permanent user id; docs/decisions.md D41) -------------------------
+
+ROLES = ("learner", "teacher")
+GENDERS = ("female", "male", "non_binary", "prefer_not_to_say")
+ACCOUNT = Ref("accounts", "cascade")
+
+
+@dataclass(kw_only=True)
+class Account(Document):
+    """A person's sign-in identity. Learning data stays keyed by the pseudonym ``learner_id``."""
+
+    __collection__ = "accounts"  # unique username, unique email
+    __id_kind__: ClassVar[IdKind] = "uuid"
+    # Deleting learning data never deletes the person's account (the reverse is done explicitly).
+    __refs__: ClassVar[Mapping[str, Ref]] = {"learner_id": Ref("learners", "set_null")}
+
+    id: str = field(default_factory=_uuid)
+    username: str  # the permanent user id, lower case
+    email: str  # lower case
+    email_verified: bool = False
+    role: str
+    name: str
+    gender: str = "prefer_not_to_say"
+    password_hash: str
+    session_version: int = 1
+    failed_logins: int = 0
+    locked_until: datetime | None = None
+    learner_id: str | None = None  # learners only
+    created_at: datetime = field(default_factory=now)
+    last_login_at: datetime | None = None
+
+    def validate(self) -> None:
+        one_of(self.role, ROLES, "role")
+        one_of(self.gender, GENDERS, "gender")
+        check(self.username == self.username.lower(), "username must be lower case")
+        check(self.email == self.email.lower(), "email must be lower case")
+
+
+@dataclass(kw_only=True)
+class AccountPhoto(Document):
+    __collection__ = "account_photos"
+    __id_kind__: ClassVar[IdKind] = "given"
+    __refs__: ClassVar[Mapping[str, Ref]] = {"id": ACCOUNT}
+
+    id: str  # the account id
+    content_type: str
+    data: bytes
+    updated_at: datetime = field(default_factory=now)
+
+
+@dataclass(kw_only=True)
+class TeacherLink(Document):
+    """A student's request to join a teacher, and the teacher's answer."""
+
+    __collection__ = "teacher_links"  # unique (student_id, teacher_id)
+    __refs__: ClassVar[Mapping[str, Ref]] = {"student_id": ACCOUNT, "teacher_id": ACCOUNT}
+
+    id: int = 0
+    student_id: str
+    teacher_id: str
+    status: str = "pending"
+    created_at: datetime = field(default_factory=now)
+    decided_at: datetime | None = None
+
+    def validate(self) -> None:
+        one_of(self.status, ("pending", "accepted", "declined"), "status")
+
+
+@dataclass(kw_only=True)
+class EmailToken(Document):
+    """A one-time link sent by email. Only the token's hash is stored."""
+
+    __collection__ = "email_tokens"
+    __id_kind__: ClassVar[IdKind] = "given"
+    __refs__: ClassVar[Mapping[str, Ref]] = {"account_id": ACCOUNT}
+
+    id: str  # sha256 of the token
+    purpose: str
+    account_id: str
+    expires_at: datetime
+    used: bool = False
+    created_at: datetime = field(default_factory=now)
+
+    def validate(self) -> None:
+        one_of(self.purpose, ("verify", "reset"), "purpose")
+
+
 MODELS: tuple[type[Document], ...] = (
     Learner,
     Course,
@@ -331,5 +418,9 @@ MODELS: tuple[type[Document], ...] = (
     TeacherRule,
     CorpusPassage,
     Consent,
+    Account,
+    AccountPhoto,
+    TeacherLink,
+    EmailToken,
 )
 BY_COLLECTION: dict[str, type[Document]] = {model.__collection__: model for model in MODELS}

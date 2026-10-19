@@ -362,7 +362,9 @@ class Store:
             for field_name, ref in model.__refs__.items():
                 if ref.collection != name:
                     continue
-                child = {field_name: {"$in": ids}}
+                # A reference can be the child's own primary key (stored as _id).
+                key = "_id" if field_name == model.__pk__ else field_name
+                child = {key: {"$in": ids}}
                 if ref.on_delete == "cascade":
                     self._delete_where(model.__collection__, child)
                 else:

@@ -21,7 +21,9 @@ class User:
     id: str  # pseudonym; never a raw LMS id
     role: Role
     name: str
-    via: Literal["lti", "dev"]
+    via: Literal["lti", "dev", "account"]
+    account_id: str | None = None  # signed in with a Mentora account
+    version: int = 0  # the account's session_version when signing in
 
 
 def session_factory(request: Request) -> StoreFactory:
@@ -95,7 +97,21 @@ def current_user(request: Request) -> User:
     raw = request.session.get("user")
     if not raw:
         raise HTTPException(401, "Not signed in")
-    return User(**raw)
+    try:
+        user = User(**raw)
+    except TypeError:  # a cookie from an older version
+        request.session.clear()
+        raise HTTPException(401, "Not signed in") from None
+    if user.account_id is not None:
+        # A password change, reset or deleted account signs out every other device.
+        from mentora.db import models as m
+
+        with session_factory(request)() as db:
+            account = db.get(m.Account, user.account_id)
+        if account is None or account.session_version != user.version:
+            request.session.clear()
+            raise HTTPException(401, "Your session has ended. Please sign in again.")
+    return user
 
 
 def require_learner(user: Annotated[User, Depends(current_user)]) -> User:
@@ -112,4 +128,54 @@ def require_teacher(user: Annotated[User, Depends(current_user)]) -> User:
 
 def sign_in(request: Request, user: User) -> None:
     request.session.clear()
-    request.session["user"] = {"id": user.id, "role": user.role, "name": user.name, "via": user.via}
+    request.session["user"] = {
+        "id": user.id,
+        "role": user.role,
+        "name": user.name,
+        "via": user.via,
+        "account_id": user.account_id,
+        "version": user.version,
+    }
+
+
+def visible_learners(user: User, db: Store) -> set[str] | None:
+    """Learner pseudonyms a teacher may see: an account teacher sees their accepted students;
+    None (everyone) for teachers from Moodle or the development sign-in."""
+    if user.account_id is None:
+        return None
+    from mentora.db import models as m
+
+    student_ids = [
+        sid
+        for (sid,) in db.values(
+            m.TeacherLink, ["student_id"], {"teacher_id": user.account_id, "status": "accepted"}
+        )
+    ]
+    if not student_ids:
+        return set()
+    return {
+        lid for (lid,) in db.values(m.Account, ["learner_id"], {"id": {"$in": student_ids}}) if lid
+    }
+
+
+def escalation_scope(user: User, db: Store) -> dict[str, Any]:
+    """Filter for the escalations a teacher sees: an account teacher sees their own students'
+    and those of students with no teacher yet, so a distress message always reaches someone.
+    Empty (everything) for teachers from Moodle or the development sign-in."""
+    mine = visible_learners(user, db)
+    if mine is None:
+        return {}
+    from mentora.db import models as m
+
+    linked_students = db.distinct(m.TeacherLink, "student_id", {"status": "accepted"})
+    linked = {
+        lid
+        for (lid,) in db.values(m.Account, ["learner_id"], {"id": {"$in": linked_students}})
+        if lid
+    }
+    return {
+        "$or": [
+            {"learner_id": {"$in": sorted(mine)}},
+            {"learner_id": {"$nin": sorted(linked)}},
+        ]
+    }

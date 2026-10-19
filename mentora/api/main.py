@@ -11,10 +11,12 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from mentora import __version__
+from mentora.accounts import RateLimiter
 from mentora.api import lti
-from mentora.api.routes import auth, console, health, learner, rag, teacher
+from mentora.api.routes import accounts, auth, console, health, learner, rag, teacher
 from mentora.config import Settings, get_settings
 from mentora.db import StoreFactory, connect, ensure_schema
+from mentora.mail import make_mailer
 
 STATIC_DIR = Path(__file__).with_name("static")
 # The web app is plain HTML, CSS and JavaScript (ES modules), served as is: no build step.
@@ -58,18 +60,26 @@ def create_app(
     app.state.settings = settings
     app.state.session_factory = session_factory
     app.state.orchestrator = None
+    app.state.mailer = make_mailer(settings)
+    acfg = settings.accounts
+    app.state.rate_limits = {
+        "signup": RateLimiter(acfg.signup_per_hour, 3600),
+        "login": RateLimiter(acfg.login_per_10_minutes, 600),
+        "email": RateLimiter(acfg.email_per_hour, 3600),
+    }
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.session_secret.get_secret_value(),
         session_cookie="mentora_session",
         same_site=settings.cookie_samesite,
         https_only=settings.cookie_https_only,
-        max_age=8 * 3600,
+        max_age=int(settings.accounts.session_days * 86400),
     )
     for router in (
         health.router,
         rag.router,
         auth.router,
+        accounts.router,
         learner.router,
         teacher.router,
         console.router,

@@ -190,3 +190,15 @@ privacy:
 
 escalation:
   target_rate: 0.05        # target: at most 5% of turns escalated
+
+accounts:
+  session_days: 7            # how long a sign-in lasts
+  lockout_attempts: 5        # wrong passwords in a row before the account is locked ...
+  lockout_minutes: 15        # ... for this long
+  verify_hours: 48           # email verification link lifetime
+  reset_hours: 1             # password reset link lifetime
+  password_min: 8
+  photo_max_kb: 300          # the browser resizes photos to 256x256 before upload
+  signup_per_hour: 10        # per client IP
+  login_per_10_minutes: 30   # per client IP
+  email_per_hour: 6          # verification / reset emails per client IP

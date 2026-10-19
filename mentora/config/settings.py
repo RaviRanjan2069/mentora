@@ -208,6 +208,20 @@ class EscalationSettings(BaseModel):
     target_rate: float = Probability
 
 
+class AccountSettings(BaseModel):
+    session_days: float = Field(gt=0)
+    lockout_attempts: int = Field(gt=0)
+    lockout_minutes: float = Field(gt=0)
+    verify_hours: float = Field(gt=0)
+    reset_hours: float = Field(gt=0)
+    password_min: int = Field(ge=8)
+    photo_max_kb: int = Field(gt=0)
+    # requests per window, per client IP
+    signup_per_hour: int = Field(gt=0)
+    login_per_10_minutes: int = Field(gt=0)
+    email_per_hour: int = Field(gt=0)
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="MENTORA_",
@@ -240,6 +254,11 @@ class Settings(BaseSettings):
     dev_login: bool = True
     # When set, dev login as a teacher needs this code (public demos without Moodle).
     dev_teacher_code: SecretStr = SecretStr("")
+    # Email through Brevo (verification and password-reset links). Empty key: links are only
+    # logged and new accounts count as verified (local development).
+    brevo_api_key: SecretStr = SecretStr("")
+    mail_from: str = ""
+    mail_from_name: str = "Mentora"
     # LTI launches inside a Moodle iframe need SameSite=None + HTTPS cookies.
     cookie_samesite: Literal["lax", "strict", "none"] = "lax"
     cookie_https_only: bool = False
@@ -258,6 +277,7 @@ class Settings(BaseSettings):
     offline: OfflineSettings
     privacy: PrivacySettings
     escalation: EscalationSettings
+    accounts: AccountSettings
 
     @model_validator(mode="after")
     def _resolve_auto_backend(self) -> Settings:

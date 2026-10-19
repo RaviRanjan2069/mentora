@@ -32,13 +32,13 @@ def _aware(t: datetime) -> datetime:
     return t if t.tzinfo else t.replace(tzinfo=UTC)
 
 
-def _events(db: Store, learner_id: str | None = None) -> list[Statement]:
-    rows = db.values(
-        m.Event,
-        ["statement"],
-        {} if learner_id is None else {"learner_id": learner_id},
-        sort=[("timestamp", ASC), ("seq", ASC)],
-    )
+def _events(
+    db: Store, learner_id: str | None = None, only: set[str] | None = None
+) -> list[Statement]:
+    filter: dict[str, Any] = {} if learner_id is None else {"learner_id": learner_id}
+    if only is not None:
+        filter["learner_id"] = {"$in": sorted(only)}
+    rows = db.values(m.Event, ["statement"], filter, sort=[("timestamp", ASC), ("seq", ASC)])
     return [Statement.model_validate(raw) for (raw,) in rows]
 
 
@@ -332,14 +332,19 @@ def next_steps(db: Store, orch: Orchestrator, k: Any, practised: set[int]) -> li
 # --- teacher -------------------------------------------------------------------------------
 
 
-def students_summary(db: Store, orch: Orchestrator, now: datetime) -> list[dict[str, Any]]:
-    """One row per learner with at least one session.
+def students_summary(
+    db: Store, orch: Orchestrator, now: datetime, only: set[str] | None = None
+) -> list[dict[str, Any]]:
+    """One row per learner with at least one session (only those in ``only`` when given:
+    a teacher's own students).
 
     At risk: dropout risk >= 0.5, or accuracy < 40% over at least 5 answers, or an open
     distress escalation."""
     s = orch.settings
     # Learners with at least one session (sessions cascade with their learner).
     learners = sorted(db.distinct(m.Session, "learner_id"))
+    if only is not None:
+        learners = [lid for lid in learners if lid in only]
     out = []
     for lid in learners:
         starts = _column(db, m.Session, "started_at", {"learner_id": lid})
@@ -388,15 +393,17 @@ def students_summary(db: Store, orch: Orchestrator, now: datetime) -> list[dict[
     return out
 
 
-def class_overview(db: Store, orch: Orchestrator, now: datetime) -> dict[str, Any]:
+def class_overview(
+    db: Store, orch: Orchestrator, now: datetime, only: set[str] | None = None
+) -> dict[str, Any]:
     """Stat cards, weekly progress, topic accuracy and recent activity for the course.
 
     * average score: share of correct answers over all logged answers
     * weekly goal completion: goals created in that course week that were attained
     """
-    students = students_summary(db, orch, now)
+    students = students_summary(db, orch, now, only)
     week_ago = now - timedelta(days=7)
-    events = _events(db)
+    events = _events(db, only=only)
     answers = [e for e in events if e.verb.id == VERBS["answered"]]
     item_keys = item_concept_keys(db, orch.course_id)
 
@@ -405,7 +412,7 @@ def class_overview(db: Store, orch: Orchestrator, now: datetime) -> dict[str, An
         wk = orch.course.week_of(_aware(a.timestamp).date())
         if wk is not None:
             weekly[wk]["score"].append(1.0 if a.result and a.result.success else 0.0)
-    for g in db.find(m.Goal):
+    for g in db.find(m.Goal, {} if only is None else {"learner_id": {"$in": sorted(only)}}):
         wk = orch.course.week_of(_aware(g.created_at).date())
         if wk is not None:
             weekly[wk]["goal"].append(1.0 if g.status == "attained" else 0.0)

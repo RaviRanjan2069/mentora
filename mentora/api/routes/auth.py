@@ -23,6 +23,11 @@ class MeOut(BaseModel):
     via: str
     llm_backend: str
     mode: str
+    # Signed in with a Mentora account:
+    username: str | None = None
+    email_verified: bool | None = None
+    has_photo: bool = False
+    photo_version: int = 0
 
 
 class DevLoginIn(BaseModel):
@@ -34,7 +39,7 @@ class DevLoginIn(BaseModel):
 @router.get("/me")
 def me(request: Request, user: Annotated[User, Depends(current_user)]) -> MeOut:
     s: Settings = request.app.state.settings
-    return MeOut(
+    out = MeOut(
         id=user.id,
         role=user.role,
         name=user.name,
@@ -42,6 +47,15 @@ def me(request: Request, user: Annotated[User, Depends(current_user)]) -> MeOut:
         llm_backend=effective_llm_backend(request.app.state),
         mode=s.app.mode,
     )
+    if user.account_id is not None:
+        with request.app.state.session_factory() as db:
+            account = db.get(m.Account, user.account_id)
+            photo = db.get(m.AccountPhoto, user.account_id)
+        if account is not None:
+            out.username, out.email_verified = account.username, account.email_verified
+            out.has_photo = photo is not None
+            out.photo_version = int(photo.updated_at.timestamp()) if photo else 0
+    return out
 
 
 @router.post("/dev/login")

@@ -9,7 +9,7 @@ from mentora.db.client import INDEXES
 def test_every_collection_has_indexes_and_known_references() -> None:
     names = {model.__collection__ for model in m.MODELS}
     assert set(INDEXES) <= names
-    assert names - set(INDEXES) == {"learners"}  # looked up by _id only
+    assert names - set(INDEXES) == {"learners", "account_photos"}  # looked up by _id only
     for model in m.MODELS:
         for field, ref in model.__refs__.items():
             assert ref.collection in names, f"{model.__name__}.{field} -> {ref.collection}"

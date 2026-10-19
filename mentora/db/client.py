@@ -63,6 +63,20 @@ INDEXES: dict[str, list[IndexModel]] = {
     "teacher_rules": [IndexModel([("course_id", ASCENDING)], name="ix_teacher_rules_course")],
     "corpus_passages": [IndexModel([("course_id", ASCENDING)], name="ix_passages_course")],
     "consents": [IndexModel([("learner_id", ASCENDING)], name="ix_consents_learner")],
+    "accounts": [
+        IndexModel([("username", ASCENDING)], unique=True, name="uq_accounts_username"),
+        IndexModel([("email", ASCENDING)], unique=True, name="uq_accounts_email"),
+        IndexModel([("learner_id", ASCENDING)], name="ix_accounts_learner"),
+    ],
+    "teacher_links": [
+        IndexModel(
+            [("student_id", ASCENDING), ("teacher_id", ASCENDING)],
+            unique=True,
+            name="uq_teacher_links_pair",
+        ),
+        IndexModel([("teacher_id", ASCENDING), ("status", ASCENDING)], name="ix_links_teacher"),
+    ],
+    "email_tokens": [IndexModel([("account_id", ASCENDING)], name="ix_email_tokens_account")],
 }
 
 _MOCK_CLIENTS: dict[str, Any] = {}

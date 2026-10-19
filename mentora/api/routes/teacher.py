@@ -9,7 +9,14 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, ValidationError
 
-from mentora.api.deps import User, db_session, orchestrator, require_teacher
+from mentora.api.deps import (
+    User,
+    db_session,
+    escalation_scope,
+    orchestrator,
+    require_teacher,
+    visible_learners,
+)
 from mentora.db import ASC, DESC, Store
 from mentora.db import models as m
 from mentora.logging_xapi.statements import VERBS, Statement
@@ -47,9 +54,11 @@ class AnswerIn(BaseModel):
 
 @router.get("/escalations")
 def escalations(user: Teacher, db: Db, status: str | None = None) -> list[EscalationOut]:
+    filter: dict[str, Any] = {"status": status} if status else {}
+    filter.update(escalation_scope(user, db))
     rows = db.find(
         m.Escalation,
-        {"status": status} if status else {},
+        filter,
         sort=[("created_at", DESC), ("id", DESC)],
         limit=200,
     )
@@ -69,7 +78,7 @@ def escalations(user: Teacher, db: Db, status: str | None = None) -> list[Escala
 
 @router.post("/escalations/{escalation_id}/answer")
 def answer_escalation(escalation_id: int, body: AnswerIn, user: Teacher, db: Db) -> EscalationOut:
-    e = db.get(m.Escalation, escalation_id)
+    e = db.find_one(m.Escalation, {"id": escalation_id, **escalation_scope(user, db)})
     if e is None:
         raise HTTPException(404, "Escalation not found")
     e.teacher_response = body.response
@@ -108,10 +117,13 @@ class DecisionOut(BaseModel):
 
 @router.get("/decisions")
 def decisions(user: Teacher, db: Db, orch: Orch, limit: int = 50) -> list[DecisionOut]:
+    visible = visible_learners(user, db)
     rows = db.values(
         m.Event,
         ["statement"],
-        {"verb": VERBS["received"]},
+        {"verb": VERBS["received"]}
+        if visible is None
+        else {"verb": VERBS["received"], "learner_id": {"$in": sorted(visible)}},
         sort=[("timestamp", DESC), ("seq", DESC)],
         limit=min(limit, 500),
     )
