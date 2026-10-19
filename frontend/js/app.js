@@ -34,7 +34,8 @@ const STUDENT = [
   { path: "/tutor", label: "AI Tutor", icon: "bot", title: "AI Tutor", sub: "Plan · Learn · Reflect · Improve", page: tutor },
   { path: "/learning", label: "My Learning", icon: "book", title: "My Learning", sub: "Practise any subject; questions adapt to the topics you miss most", page: myLearning },
   { path: "/goals", label: "Goals & Plans", icon: "target", title: "Goals & Plans", sub: "Your goals, plans, tutor suggestions and what Mentora remembers", page: learning },
-  { path: "/practice", label: "Practice", icon: "practice", title: "Practice Questions", sub: "Test your understanding and get feedback", page: practice },
+  // Not in the menu (My Learning is the practice page): opened from Home's suggestions.
+  { path: "/practice", label: "Practice", icon: "practice", title: "Practice Questions", sub: "Test your understanding and get feedback", page: practice, hidden: true },
   // Not in the menu: opened from the tutor's source links and Home suggestions.
   { path: "/resources", label: "Resources", icon: "folder", title: "Course notes", sub: "The passage the tutor used", page: resources, hidden: true },
   { path: "/progress", label: "Progress", icon: "trend", title: "Progress", sub: "Mastery by concept and how well your confidence matches your results", page: progress },
