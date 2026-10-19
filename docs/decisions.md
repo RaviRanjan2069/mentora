@@ -381,4 +381,9 @@ a 14-day accuracy line graph; "Up next" (an unfinished round, the roadmap's curr
 teachers' quizzes not yet taken, the weakest topic); subject cards; quizzes; recent activity.
 New students get a four-step getting-started list instead. Chart colours use a categorical
 palette validated for colour-vision deficiency in light and dark (tokens `--cat-1..8`).
+Revised the same day for a calmer, editorial look (no gradient hero, sparkle icons or pill
+badges): full page width, the date and a serif greeting, a plain-English summary of the week
+written from the numbers, this week's figures with the change from last week, the 14-day
+accuracy graph, a numbered Up next list, subjects as a table, and the tour as a framed "How
+Mentora works" panel with numbered scene tabs.
 

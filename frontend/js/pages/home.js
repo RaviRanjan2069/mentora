@@ -1,19 +1,20 @@
-// Home: a hero with an animated product tour (a video-like player built from live HTML, so it
-// is sharp, light and follows the theme) and a dashboard of the student's real numbers.
+// Home: a calm, full-width overview of the student's week, written from their real numbers,
+// with a short product tour for newcomers. Editorial layout: type and rules, few boxes.
 import { api, errorText, pct, timeAgo } from "../api.js";
 import { h, icon, logo, plural, render, s } from "../dom.js";
-import { errorLine, skeleton, toast } from "../ui.js";
+import { errorLine, toast } from "../ui.js";
 import { colourOf, lineGraph } from "./progress.js";
-import { subjectBadge } from "./subjects.js";
 
-const SCENE_MS = 6000;
+const SCENE_MS = 6500;
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
-// --- the animated tour -------------------------------------------------------------------------
+// --- the product tour (HTML/CSS animation, follows the theme) ------------------------------------
 
 const SCENES = [
   {
-    label: "Ask the AI tutor",
+    label: "Ask the tutor",
     build: () => h("div", { class: "scene scene-chat" },
       h("div", { class: "s-bubble user" }, "What is a Python tuple?"),
       h("div", { class: "s-bot" }, h("span", { class: "s-avatar" }, logo()),
@@ -23,16 +24,16 @@ const SCENES = [
           h("div", { class: "s-line w60" })))),
   },
   {
-    label: "Practise with instant feedback",
+    label: "Practise",
     build: () => h("div", { class: "scene scene-quiz" },
-      h("div", { class: "s-qhead" }, h("span", { class: "s-chip" }, "Java · Collections"), h("span", { class: "s-score" }, "Question 4 of 10")),
+      h("div", { class: "s-qhead" }, h("span", { class: "s-chip" }, "Java · Collections"), h("span", { class: "s-score" }, "4 of 10")),
       h("div", { class: "s-question" }, "Which collection keeps keys sorted?"),
       ["HashMap", "TreeMap", "ArrayList", "HashSet"].map((o, i) => h("div", { class: `s-opt ${i === 1 ? "pick" : ""}`, style: { "--d": `${0.25 + i * 0.15}s` } },
         h("b", null, "ABCD"[i]), h("span", null, o), i === 1 ? h("i", { class: "s-tick" }, icon("check")) : null)),
-      h("div", { class: "s-feedback" }, h("b", null, "Correct! "), "TreeMap is a red-black tree ordered by key.")),
+      h("div", { class: "s-feedback" }, h("b", null, "Correct. "), "TreeMap is ordered by key.")),
   },
   {
-    label: "See your real progress",
+    label: "Track progress",
     build: () => h("div", { class: "scene scene-chart" },
       h("div", { class: "s-kpis" },
         h("div", null, h("small", null, "Accuracy"), h("b", { class: "s-count", "data-to": "82" }, "0"), "%"),
@@ -45,7 +46,7 @@ const SCENES = [
         s("circle", { class: "s-dot", cx: 320, cy: 24, r: 5 }))),
   },
   {
-    label: "Follow your roadmap",
+    label: "Follow a plan",
     build: () => h("div", { class: "scene scene-road" },
       h("div", { class: "s-roadhead" }, h("b", null, "Learn Java from basic to advanced"), h("span", { class: "s-pct" }, h("span", { class: "s-count", "data-to": "38" }, "0"), "%")),
       h("div", { class: "s-bar" }, h("span", null)),
@@ -62,37 +63,38 @@ function tour() {
   let started = 0;
   let remaining = SCENE_MS;
   const stage = h("div", { class: "tour-stage" });
-  const bars = h("div", { class: "tour-bars" });
-  const caption = h("div", { class: "tour-caption" });
+  const tabs = h("div", { class: "tour-tabs", role: "tablist" });
   const playBtn = h("button", { class: "tour-play", "aria-label": "Pause" });
 
   function countUp(root) {
     for (const el of root.querySelectorAll(".s-count")) {
       const to = Number(el.dataset.to);
+      if (reducedMotion()) {
+        el.textContent = String(to);
+        continue;
+      }
       const t0 = performance.now();
       const step = (t) => {
         const k = Math.min(1, (t - t0) / 1400);
         el.textContent = String(Math.round(to * (1 - (1 - k) ** 3)));
         if (k < 1 && el.isConnected) requestAnimationFrame(step);
       };
-      if (reducedMotion()) el.textContent = String(to);
-      else requestAnimationFrame(step);
+      requestAnimationFrame(step);
     }
   }
 
-  function paintBars() {
-    render(bars, SCENES.map((sc, i) => h("button", {
-      class: `tour-bar ${i < index ? "past" : i === index ? "now" : ""} ${playing ? "" : "paused"}`,
-      "aria-label": `Show: ${sc.label}`, "aria-current": i === index ? "step" : null,
-      onClick: () => { if (!playing) toggle(); go(i); },
-    }, h("span", { style: { animationDuration: `${SCENE_MS}ms` } }))));
+  function paintTabs() {
+    render(tabs, SCENES.map((sc, i) => h("button", {
+      role: "tab", class: `tour-tab ${i < index ? "past" : i === index ? "now" : ""} ${playing ? "" : "paused"}`,
+      "aria-selected": String(i === index), onClick: () => { if (!playing) toggle(); go(i); },
+    }, h("span", { class: "tour-tab-label" }, `${String(i + 1).padStart(2, "0")} ${sc.label}`),
+    h("span", { class: "tour-tab-bar" }, h("i", { style: { animationDuration: `${SCENE_MS}ms` } })))));
   }
 
   function show() {
     const scene = SCENES[index].build();
     render(stage, scene);
-    render(caption, h("b", null, `${index + 1}/${SCENES.length}`), " ", SCENES[index].label);
-    paintBars();
+    paintTabs();
     countUp(scene);
   }
 
@@ -119,32 +121,71 @@ function tour() {
     playBtn.setAttribute("aria-label", playing ? "Pause" : "Play");
     render(playBtn, icon(playing ? "pause" : "play"));
     root.classList.toggle("paused", !playing);
-    paintBars();
+    paintTabs();
   }
 
   playBtn.addEventListener("click", toggle);
   render(playBtn, icon(playing ? "pause" : "play"));
-  const root = h("div", { class: `tour ${playing ? "" : "paused"}`, role: "region", "aria-label": "Mentora product tour" },
-    h("div", { class: "tour-chrome" }, h("i"), h("i"), h("i"), h("span", null, "mentora.app"), playBtn),
-    bars, stage, caption);
+  const root = h("div", { class: `tour ${playing ? "" : "paused"}`, role: "region", "aria-label": "How Mentora works" },
+    h("div", { class: "tour-top" }, tabs, playBtn),
+    stage);
   show();
   schedule(SCENE_MS);
   return { el: root, stop: () => window.clearTimeout(timer) };
 }
 
-// --- dashboard -----------------------------------------------------------------------------------
+// --- helpers --------------------------------------------------------------------------------------
 
 function greetingWord() {
   const hour = new Date().getHours();
-  return hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  return hour < 5 ? "Good evening" : hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 }
 
-function kpi(ic, tone, label, value, note) {
-  return h("div", { class: "card kpi" },
-    h("div", { class: `kpi-ico ${tone}` }, icon(ic)),
-    h("div", { class: "kpi-label" }, label),
-    h("div", { class: "kpi-value" }, value),
-    note ? h("div", { class: "kpi-note" }, note) : null);
+function today() {
+  const d = new Date();
+  return `${DAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
+/** This week vs the week before, from the 14 daily buckets. */
+function weeks(p) {
+  const n = p.series.answered.length;
+  const sum = (from, to) => {
+    let answered = 0;
+    let right = 0;
+    for (let i = Math.max(0, from); i < to; i += 1) {
+      const a = p.series.answered[i] ?? 0;
+      answered += a;
+      right += Math.round((p.series.overall[i] ?? 0) * a);
+    }
+    return { answered, acc: answered ? right / answered : null };
+  };
+  return { now: sum(n - 7, n), before: sum(n - 14, n - 7) };
+}
+
+function change(nowV, beforeV, unit) {
+  if (nowV === null || beforeV === null || beforeV === undefined) return null;
+  const diff = unit === "%" ? Math.round((nowV - beforeV) * 100) : nowV - beforeV;
+  if (diff === 0) return h("span", { class: "chg flat" }, "same as last week");
+  return h("span", { class: `chg ${diff > 0 ? "up" : "down"}` }, `${diff > 0 ? "+" : "−"}${Math.abs(diff)}${unit === "%" ? " pts" : ""} vs last week`);
+}
+
+function summary(d, w) {
+  const tot = d.progress.totals;
+  if (!tot.answered) return "You have not practised yet. Pick a subject below and answer your first 10 questions; this page fills in as you go.";
+  const parts = [];
+  if (w.now.answered) {
+    parts.push(`This week you answered ${plural(w.now.answered, "question")}`);
+    if (w.now.acc !== null) parts[0] += ` and got ${pct(w.now.acc)} right`;
+    if (w.before.answered) parts[0] += w.now.answered >= w.before.answered ? `, more than the ${w.before.answered} the week before` : `, fewer than the ${w.before.answered} the week before`;
+    parts[0] += ".";
+  } else {
+    parts.push("You have not practised this week yet.");
+  }
+  const best = [...d.progress.subjects].sort((a, b) => (b.accuracy ?? 0) - (a.accuracy ?? 0))[0];
+  if (best) parts.push(`${best.name} is your strongest subject at ${pct(best.accuracy)}.`);
+  const weak = d.progress.focus[0];
+  if (weak) parts.push(`${weak.topic} (${weak.subject}) needs the most work.`);
+  return parts.join(" ");
 }
 
 async function startRound(subjectId, topics) {
@@ -159,40 +200,27 @@ async function startRound(subjectId, topics) {
 
 function nextSteps(d) {
   const steps = [];
-  for (const s0 of d.subjects.filter((x) => x.open_round)) {
-    steps.push({ ic: "play", tone: "blue", title: `Finish your ${s0.name} round`, note: "Pick up where you left off", run: () => { window.location.hash = `#/learning?round=${s0.open_round}`; } });
+  for (const sb of d.subjects.filter((x) => x.open_round)) {
+    steps.push({ title: `Finish your ${sb.name} round`, note: "You left it part-way", href: `#/learning?round=${sb.open_round}` });
   }
   const road = d.roadmaps.find((r) => r.status === "active");
-  if (road) {
-    steps.push({ ic: "target", tone: "purple", title: `Week ${road.progress.current_week}: ${road.current_title ?? road.goal}`, note: `${road.subject} roadmap · ${pct(road.progress.percent)} done`, run: () => { window.location.hash = `#/goals?roadmap=${road.id}`; } });
-  }
-  for (const q of d.quizzes.slice(0, 2)) {
-    steps.push({ ic: "file", tone: "orange", title: `Quiz: ${q.title}`, note: `${q.subject} by ${q.teacher} · ${plural(q.questions, "question")}`, run: () => { window.location.hash = `#/subjects?quiz=${q.id}`; } });
-  }
+  if (road) steps.push({ title: `Week ${road.progress.current_week} of your ${road.subject} plan`, note: road.current_title ?? road.goal, href: `#/goals?roadmap=${road.id}` });
+  for (const q of d.quizzes.slice(0, 2)) steps.push({ title: `Take “${q.title}”`, note: `${q.subject} · ${q.teacher}`, href: `#/subjects?quiz=${q.id}` });
   const weak = d.progress.focus[0];
   if (weak) {
-    const sub = d.progress.subjects.find((x) => x.name === weak.subject);
-    steps.push({ ic: "alert", tone: "red", title: `Strengthen ${weak.topic}`, note: `${weak.subject} · ${pct(weak.accuracy)} right so far`, run: () => startRound(sub?.id, weak.topic) });
+    const sb = d.progress.subjects.find((x) => x.name === weak.subject);
+    steps.push({ title: `Practise ${weak.topic}`, note: `${weak.subject} · ${pct(weak.accuracy)} right so far`, run: () => startRound(sb?.id, weak.topic) });
   }
+  if (!road) steps.push({ title: "Set a learning goal", note: "Get a week-by-week plan", href: "#/goals" });
   return steps.slice(0, 5);
 }
 
-function gettingStarted() {
-  const items = [
-    ["layers", "Choose a subject to practise", "Rounds of 10 questions that adapt to you", "#/learning"],
-    ["target", "Set a learning goal", "Get a week-by-week roadmap", "#/goals"],
-    ["bot", "Ask the AI tutor anything", "Concepts, code and exam doubts", "#/tutor"],
-    ["users", "Join your teacher's class", "Enter their 10-digit class code", "#/teachers"],
-  ];
-  return h("section", { class: "card" },
-    h("h2", null, "Get started in 4 steps"),
-    h("ol", { class: "start-steps" }, items.map(([ic, title, note, href], i) => h("li", null,
-      h("a", { href }, h("span", { class: "step-n" }, i + 1), h("span", { class: "step-ico" }, icon(ic)),
-        h("div", null, h("b", null, title), h("span", { class: "muted small" }, note)), icon("arrow"))))));
-}
+// --- the page ------------------------------------------------------------------------------------
 
 export default function home(root, { me }) {
-  let stopTour = () => undefined;
+  const first = (me.name || "there").split(" ")[0];
+  const t = tour();
+  const body = h("div", { class: "home-body" }, h("p", { class: "muted" }, "Loading your week…"));
 
   async function load() {
     try {
@@ -205,98 +233,96 @@ export default function home(root, { me }) {
       for (const sr of progress.series.subjects) colourOf(sr.name);
       paint({ progress, subjects, roadmaps, quizzes });
     } catch (e) {
-      render(dash, errorLine(errorText(e)));
+      render(body, errorLine(errorText(e)));
     }
   }
-
-  const first = (me.name || "there").split(" ")[0];
-  const t = tour();
-  stopTour = t.stop;
-  const dash = h("div", { class: "stack" }, skeleton({ cards: 3, stats: true }));
 
   function paint(d) {
     const p = d.progress;
     const tot = p.totals;
+    const w = weeks(p);
     const road = d.roadmaps.find((r) => r.status === "active");
-    const thisWeek = p.series.answered.slice(-7).reduce((a, b) => a + b, 0);
-    const practised = d.subjects.filter((x) => x.answered > 0);
     const steps = nextSteps(d);
-    const isNew = !tot.answered && !d.roadmaps.length && !tot.quizzes;
-    render(dash,
-      h("div", { class: "kpi-grid" },
-        kpi("target", "blue", "Accuracy · 14 days", pct(tot.accuracy_in_range), tot.accuracy === null ? "Answer a few questions to start" : `${pct(tot.accuracy)} all time`),
-        kpi("check", "green", "Answered this week", thisWeek, `${tot.answered} in total`),
-        kpi("flame", "orange", "Study streak", plural(tot.streak, "day"), tot.streak ? "Keep it going today" : "Practise today to start one"),
-        kpi("layers", "purple", "Roadmap", road ? pct(road.progress.percent) : "–", road ? `${road.subject} · week ${road.progress.current_week} of ${road.progress.weeks_total}` : "Set a goal to get a plan")),
-      isNew ? gettingStarted() : null,
-      !isNew
-        ? h("div", { class: "grid cols-wide-narrow" },
-            h("section", { class: "card" },
-              h("div", { class: "card-head" },
-                h("div", null, h("h2", null, "Your accuracy, last 14 days"), h("p", { class: "muted small" }, "Share of right answers each day across all subjects.")),
-                h("a", { class: "btn small", href: "#/progress" }, "Full progress", icon("arrow"))),
-              lineGraph(p.labels, [{ name: "Accuracy", color: "var(--cat-1)", values: p.series.overall, width: 2.6, area: true }],
-                { height: 230, width: 640, title: "Accuracy over the last 14 days" })),
-            h("section", { class: "card" },
-              h("h2", null, "Up next"),
-              steps.length
-                ? h("ul", { class: "next-list" }, steps.map((st) => h("li", null,
-                    h("button", { onClick: st.run },
-                      h("span", { class: `kpi-ico ${st.tone}` }, icon(st.ic)),
-                      h("div", null, h("b", null, st.title), h("span", { class: "muted small" }, st.note)),
-                      icon("arrow")))))
-                : h("p", { class: "empty" }, "All caught up. Start a new round in My Learning.")))
-        : null,
-      h("section", null,
-        h("div", { class: "row", style: { marginBottom: 10 } },
-          h("h2", { class: "section-title", style: { margin: 0 } }, practised.length ? "Your subjects" : "Subjects you can practise"),
-          h("div", { class: "spacer" }),
-          h("a", { class: "btn small", href: "#/learning" }, "All subjects", icon("arrow"))),
-        h("div", { class: "home-subjects" }, (practised.length ? practised : d.subjects.slice(0, 4)).slice(0, 4).map((sb) => {
-          const prog = p.subjects.find((x) => x.id === sb.id);
-          return h("article", { class: "home-subject" },
-            h("div", { class: "row nowrap" }, subjectBadge(sb.name),
-              h("div", { style: { minWidth: 0, flex: 1 } }, h("b", null, sb.name),
-                h("div", { class: "muted small" }, sb.answered ? `${sb.answered} answered · ${plural(sb.rounds, "round")}` : `${sb.questions} questions · ${sb.topics} topics`)),
-              sb.answered ? h("b", { class: "home-pct" }, pct(sb.accuracy)) : null),
-            sb.answered
-              ? h("div", { class: "home-meter" }, h("span", { style: { width: `${Math.round((sb.accuracy ?? 0) * 100)}%`, background: colourOf(sb.name) } }))
-              : null,
-            prog?.weakest?.length ? h("div", { class: "muted small" }, "Focus: ", h("span", { class: "badge danger" }, prog.weakest[0])) : null,
-            h("button", { class: "btn small primary", onClick: () => (sb.open_round ? (window.location.hash = `#/learning?round=${sb.open_round}`) : startRound(sb.id)) },
-              icon("play"), sb.open_round ? " Continue" : " Practise 10"));
-        }))),
-      d.quizzes.length
-        ? h("section", { class: "card" },
-            h("h2", null, "Quizzes from your teachers"),
-            h("ul", { class: "list" }, d.quizzes.map((q) => h("li", { class: "list-row" },
-              h("span", { class: "ico" }, icon("file")),
-              h("div", { class: "body" }, h("div", { class: "title" }, q.title),
-                h("div", { class: "muted small" }, `${q.subject} by ${q.teacher} · ${plural(q.questions, "question")}${q.time_limit_min ? ` · ${q.time_limit_min} min` : ""}`)),
-              h("a", { class: "btn small primary", href: `#/subjects?quiz=${q.id}` }, "Start")))))
-        : null,
-      p.activity.length
-        ? h("section", { class: "card" },
-            h("h2", null, "Recent activity"),
-            h("ul", { class: "list" }, p.activity.slice(0, 4).map((a) => h("li", { class: "list-row" },
-              h("span", { class: "ico" }, icon(a.kind === "quiz" ? "file" : "target")),
-              h("div", { class: "body" }, h("div", { class: "title" }, a.title), h("div", { class: "muted small" }, timeAgo(a.at))),
-              h("b", null, `${a.score}/${a.total}`)))))
-        : null);
+    const rows = d.subjects.filter((x) => x.answered > 0);
+    const others = d.subjects.filter((x) => !x.answered);
+    render(summaryEl, summary(d, w));
+    render(body,
+      h("section", { class: "home-band" },
+        h("div", { class: "home-week" },
+          h("h3", { class: "eyebrow" }, "This week"),
+          h("div", { class: "figures" },
+            h("div", { class: "figure" }, h("span", { class: "fig-label" }, "Accuracy"), h("span", { class: "fig-value" }, pct(w.now.acc)), change(w.now.acc, w.before.acc, "%")),
+            h("div", { class: "figure" }, h("span", { class: "fig-label" }, "Questions"), h("span", { class: "fig-value" }, w.now.answered), change(w.now.answered, w.before.answered, "")),
+            h("div", { class: "figure" }, h("span", { class: "fig-label" }, "Streak"), h("span", { class: "fig-value" }, tot.streak, h("small", null, tot.streak === 1 ? " day" : " days")), h("span", { class: "chg flat" }, `${tot.study_days} study days in all`)),
+            h("div", { class: "figure" }, h("span", { class: "fig-label" }, "Plan"), h("span", { class: "fig-value" }, road ? pct(road.progress.percent) : "—"),
+              h("span", { class: "chg flat" }, road ? `${road.subject}, week ${road.progress.current_week} of ${road.progress.weeks_total}` : h("a", { href: "#/goals" }, "Set a goal")))),
+          tot.answered
+            ? h("div", { class: "home-chart" },
+                h("div", { class: "chart-cap" }, h("span", null, "Daily accuracy, last 14 days"), h("a", { href: "#/progress" }, "All progress →")),
+                lineGraph(p.labels, [{ name: "Accuracy", color: "var(--cat-1)", values: p.series.overall, width: 2.4, area: true }],
+                  { height: 210, width: 760, title: "Daily accuracy over the last 14 days" }))
+            : null),
+        h("aside", { class: "home-next" },
+          h("h3", { class: "eyebrow" }, "Up next"),
+          steps.length
+            ? h("ol", { class: "next-steps" }, steps.map((st) => h("li", null,
+                st.href
+                  ? h("a", { href: st.href }, h("b", null, st.title), h("span", null, st.note))
+                  : h("button", { onClick: st.run }, h("b", null, st.title), h("span", null, st.note)))))
+            : h("p", { class: "muted" }, "Nothing waiting. Start a round whenever you like."))),
+      h("section", { class: "home-section" },
+        h("div", { class: "section-head" }, h("h3", { class: "eyebrow" }, "Subjects"), h("a", { href: "#/learning" }, "Open My Learning →")),
+        rows.length
+          ? h("table", { class: "home-table" },
+              h("thead", null, h("tr", null, ["Subject", "Accuracy", "", "Answered", "Last 7 days", "Focus on", ""].map((x) => h("th", null, x)))),
+              h("tbody", null, rows.map((sb) => {
+                const prog = p.subjects.find((x) => x.id === sb.id);
+                return h("tr", null,
+                  h("td", null, h("span", { class: "dot", style: { background: colourOf(sb.name) } }), h("b", null, sb.name)),
+                  h("td", { class: "num" }, pct(sb.accuracy)),
+                  h("td", { class: "barcell" }, h("span", { class: "thin-bar" }, h("i", { style: { width: `${Math.round((sb.accuracy ?? 0) * 100)}%`, background: colourOf(sb.name) } }))),
+                  h("td", { class: "num" }, sb.answered),
+                  h("td", null, prog?.change === null || prog?.change === undefined ? h("span", { class: "muted" }, "—")
+                    : h("span", { class: `chg ${prog.change >= 0 ? "up" : "down"}` }, `${prog.change >= 0 ? "+" : "−"}${Math.abs(Math.round(prog.change * 100))} pts`)),
+                  h("td", { class: "muted" }, prog?.weakest?.[0] ?? "—"),
+                  h("td", { class: "act" }, h("button", { class: "text-btn", onClick: () => (sb.open_round ? (window.location.hash = `#/learning?round=${sb.open_round}`) : startRound(sb.id)) },
+                    sb.open_round ? "Continue" : "Practise")));
+              })))
+          : null,
+        others.length
+          ? h("p", { class: "muted more-subjects" }, rows.length ? "Not started yet: " : "Pick a subject to begin: ",
+              others.map((sb, i) => [i ? ", " : "", h("button", { class: "text-btn", onClick: () => startRound(sb.id) }, sb.name)]))
+          : null),
+      h("section", { class: "home-band lower" },
+        h("div", { class: "home-tour" },
+          h("div", { class: "section-head" }, h("h3", { class: "eyebrow" }, "How Mentora works"), h("span", { class: "muted small" }, "A one-minute tour")),
+          t.el),
+        h("div", { class: "home-side" },
+          d.quizzes.length
+            ? h("div", null, h("h3", { class: "eyebrow" }, "From your teachers"),
+                h("ul", { class: "plain-list" }, d.quizzes.map((q) => h("li", null,
+                  h("a", { href: `#/subjects?quiz=${q.id}` }, q.title),
+                  h("span", { class: "muted small" }, `${q.subject} · ${q.teacher} · ${plural(q.questions, "question")}`)))))
+            : null,
+          h("div", null, h("h3", { class: "eyebrow" }, "Recent"),
+            p.activity.length
+              ? h("ul", { class: "plain-list" }, p.activity.slice(0, 5).map((a) => h("li", null,
+                  h("span", null, a.title, h("b", { class: "score" }, ` ${a.score}/${a.total}`)),
+                  h("span", { class: "muted small" }, timeAgo(a.at)))))
+              : h("p", { class: "muted" }, "Your rounds and quizzes will appear here.")))));
   }
 
-  render(root, h("div", { class: "stack home" },
-    h("section", { class: "home-hero" },
-      h("div", { class: "hero-copy" },
-        h("span", { class: "hero-kicker" }, icon("sparkle"), ` ${greetingWord()}, ${first}`),
-        h("h2", null, "Learn smarter with Mentora"),
-        h("p", null, "Practise any subject with questions that adapt to you, follow a week-by-week roadmap, and ask your AI tutor whenever you are stuck."),
-        h("div", { class: "row hero-cta" },
-          h("a", { class: "btn hero-primary", href: "#/learning" }, icon("play"), " Start practising"),
-          h("a", { class: "btn hero-ghost", href: "#/tutor" }, icon("bot"), " Ask the AI tutor"),
-          h("a", { class: "btn hero-ghost", href: "#/goals" }, icon("target"), " Set a goal"))),
-      t.el),
-    dash));
+  const summaryEl = h("p", { class: "home-summary" }, " ");
+  render(root, h("div", { class: "home" },
+    h("header", { class: "home-head" },
+      h("div", { class: "home-date" }, today()),
+      h("h2", { class: "home-greeting" }, `${greetingWord()}, ${first}.`),
+      summaryEl,
+      h("div", { class: "home-actions" },
+        h("a", { class: "btn primary", href: "#/learning" }, "Practise"),
+        h("a", { class: "btn", href: "#/tutor" }, "Ask the tutor"),
+        h("a", { class: "btn", href: "#/goals" }, "Goals & plans"))),
+    body));
   load();
-  return () => stopTour();
+  return () => t.stop();
 }

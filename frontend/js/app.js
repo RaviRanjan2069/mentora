@@ -29,7 +29,7 @@ import subjects from "./pages/subjects.js";
 import { photoOf } from "./people.js";
 
 const STUDENT = [
-  { path: "/", label: "Home", icon: "home", title: "Home", sub: "Your learning at a glance", page: home },
+  { path: "/", label: "Home", icon: "home", title: "Home", sub: null, page: home, wide: true },
   { path: "/subjects", label: "Subjects", icon: "layers", title: "Subjects", sub: "Choose a subject and teacher, read their material and take their quizzes", page: subjects },
   { path: "/tutor", label: "AI Tutor", icon: "bot", title: "AI Tutor", sub: "Ask anything", page: tutor, full: true },
   { path: "/learning", label: "My Learning", icon: "book", title: "My Learning", sub: "Practise any subject; questions adapt to the topics you miss most", page: myLearning },
@@ -280,9 +280,10 @@ function shell(me, signOut) {
     window.scrollTo({ top: 0 });
     paintNav();
     render(title, h("h1", null, page.title || greeting(me.name)),
-      h("div", { class: "sub" }, page.sub || "Here's your learning progress and recommendations."));
+      page.sub === null ? null : h("div", { class: "sub" }, page.sub || "Here's your learning progress and recommendations."));
     const body = h("div", { class: page.full ? "page-full" : "page-enter" });
     content.classList.toggle("full", Boolean(page.full));
+    content.classList.toggle("wide", Boolean(page.wide));
     root.classList.toggle("full-page", Boolean(page.full));
     render(content, verifyBanner(), me.llm_backend === "offline" || me.llm_backend === "fake" ? demoNotice(me.role) : null, body);
     cleanup = page.page(body, { me, ask, refreshMe }) || null;
