@@ -31,6 +31,7 @@ each database round trip is a few milliseconds; a tutor turn makes about 25.
 | `MENTORA_SESSION_SECRET`, `MENTORA_PSEUDONYM_SALT` | long random | Keep the salt fixed once learners exist. |
 | `MENTORA_DEV_LOGIN` | `false` once accounts are used | Everyone signs up / in with an account (D41). |
 | `MENTORA_BREVO_API_KEY`, `MENTORA_MAIL_FROM`, `MENTORA_MAIL_FROM_NAME` | secret / your verified sender / `Mentora` | Verification and password-reset emails. |
+| `MENTORA_ADMIN_EMAIL` | your inbox (optional) | Where "Request a teacher code" emails from the sign-up page go; empty means `MENTORA_MAIL_FROM`. Reply to the person with the teacher code if you trust them. |
 | `MENTORA_PUBLIC_BASE_URL` | `https://<service>.onrender.com` | Links in emails point here. |
 
 ## First deployment

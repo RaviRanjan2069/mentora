@@ -26,7 +26,7 @@ class MailError(Exception):
 class Mailer(Protocol):
     configured: bool
 
-    def send(self, to: str, subject: str, text: str) -> None: ...
+    def send(self, to: str, subject: str, text: str, reply_to: str | None = None) -> None: ...
 
 
 @dataclass
@@ -36,7 +36,7 @@ class LogMailer:
     configured: bool = False
     sent: list[tuple[str, str, str]] = field(default_factory=list)
 
-    def send(self, to: str, subject: str, text: str) -> None:
+    def send(self, to: str, subject: str, text: str, reply_to: str | None = None) -> None:
         self.sent.append((to, subject, text))
         # A warning, so the link shows in development logs without any logging setup.
         log.warning("email not sent (no mail service configured) to %s: %s\n%s", to, subject, text)
@@ -54,14 +54,16 @@ class BrevoMailer:
         )
         self.sender, self.sender_name = sender, sender_name
 
-    def send(self, to: str, subject: str, text: str) -> None:
-        body = {
+    def send(self, to: str, subject: str, text: str, reply_to: str | None = None) -> None:
+        body: dict[str, object] = {
             "sender": {"email": self.sender, "name": self.sender_name},
             "to": [{"email": to}],
             "subject": subject,
             "htmlContent": _html(text),
             "textContent": text,
         }
+        if reply_to:
+            body["replyTo"] = {"email": reply_to}
         try:
             resp = self._client.post(BREVO_URL, json=body)
         except httpx.HTTPError as exc:

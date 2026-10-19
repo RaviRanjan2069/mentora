@@ -67,6 +67,7 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
     mode: initialMode, busy: false, error: null, done: null, options: { dev_login: false, email: false, teacher_signup: true },
     login: "", password: "", role: "learner", name: "", username: "", email: "", password2: "",
     gender: "prefer_not_to_say", teacherCode: "", accept: false, userCheck: null, devName: "", devRole: "learner", devCode: "",
+    ask: { open: false, message: "", busy: false, error: null, done: false },
   };
   let checkTimer = 0;
 
@@ -115,6 +116,50 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
       onSignedIn();
     });
   };
+
+  async function askForCode() {
+    const ask = st.ask;
+    ask.error = null;
+    if (!st.name.trim() || !st.email.trim()) {
+      ask.error = "Fill in your full name and email above first, so the administrator can reply to you.";
+      paint();
+      return;
+    }
+    ask.busy = true;
+    paint();
+    try {
+      await api.post("/api/auth/request-teacher-code", { name: st.name.trim(), email: st.email.trim(), message: ask.message.trim() });
+      ask.done = true;
+    } catch (e) {
+      ask.error = errorText(e);
+    }
+    ask.busy = false;
+    paint();
+  }
+
+  function askCodePanel() {
+    const ask = st.ask;
+    if (ask.done) {
+      return h("div", { class: "ask-code done" }, icon("check"),
+        h("span", null, `Request sent. The administrator will reply to ${st.email.trim()} with the code if they approve. Check your spam folder too.`));
+    }
+    if (!ask.open) {
+      return h("div", { class: "hint" }, "Don't have a code? ",
+        h("button", { type: "button", class: "link-btn inline", onClick: () => { ask.open = true; paint(); } }, "Request a teacher code"));
+    }
+    return h("div", { class: "ask-code" },
+      h("p", null, "We will email the Mentora administrator your name and email from this form. They decide whether to send you the code."),
+      h("label", { class: "field" }, h("span", null, "Message (optional)"),
+        h("textarea", {
+          rows: "3", maxlength: "500", value: ask.message, "data-key": "askMessage",
+          placeholder: "e.g. I teach Python at ABC College.",
+          onInput: (e) => { ask.message = e.target.value; },
+        })),
+      h("div", { class: "ask-code-actions" },
+        h("button", { type: "button", class: "btn primary small", disabled: ask.busy, onClick: askForCode }, ask.busy ? "Sending…" : "Send request"),
+        h("button", { type: "button", class: "btn small", disabled: ask.busy, onClick: () => { ask.open = false; ask.error = null; paint(); } }, "Cancel")),
+      ask.error ? h("p", { class: "error", role: "alert" }, ask.error) : null);
+  }
 
   const forgot = (e) => {
     e.preventDefault();
@@ -249,6 +294,7 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
             }),
             h("div", { class: "hint" }, "Teacher accounts need the code from the Mentora administrator."))
         : null,
+      st.role === "teacher" ? askCodePanel() : null,
       h("label", { class: "check-line" },
         h("input", { type: "checkbox", checked: st.accept, onChange: (e) => { st.accept = e.target.checked; } }),
         h("span", null,

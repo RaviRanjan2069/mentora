@@ -23,9 +23,11 @@ PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
 class OutboxMailer:
     configured: bool = True
     sent: list[tuple[str, str, str]] = field(default_factory=list)
+    reply_to: list[str | None] = field(default_factory=list)
 
-    def send(self, to: str, subject: str, text: str) -> None:
+    def send(self, to: str, subject: str, text: str, reply_to: str | None = None) -> None:
         self.sent.append((to, subject, text))
+        self.reply_to.append(reply_to)
 
     def token(self, to: str) -> str:
         text = next(t for (addr, _, t) in reversed(self.sent) if addr == to)
@@ -337,3 +339,17 @@ def test_deleting_a_teacher_removes_their_code(app: FastAPI, mail: OutboxMailer)
     )
     with app.state.session_factory() as db:
         assert db.count(m.ClassCode) == 0
+
+
+def test_request_teacher_code_emails_the_admin(app: FastAPI, mail: OutboxMailer) -> None:
+    app.state.settings = app.state.settings.model_copy(update={"admin_email": "boss@example.com"})
+    c = TestClient(app)
+    body = {"name": " Ravi  Kumar ", "email": "Ravi@Example.com", "message": "I teach Python."}
+    assert c.post("/api/auth/request-teacher-code", json=body).status_code == 202
+    to, subject, text = mail.sent[-1]
+    assert to == "boss@example.com" and "Ravi Kumar" in subject
+    assert "ravi@example.com" in text and "I teach Python." in text
+    assert CODE not in text  # the code itself is never emailed automatically
+    assert mail.reply_to[-1] == "ravi@example.com"
+    bad = c.post("/api/auth/request-teacher-code", json={**body, "email": "not-an-email"})
+    assert bad.status_code == 422

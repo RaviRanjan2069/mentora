@@ -265,3 +265,9 @@ img.photo.md, .photo-md { width: 40px; height: 40px; border-radius: 999px; objec
 .verify-banner { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
 .class-code { font: 700 20px/1 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .06em;
   background: var(--brand-soft); color: var(--brand); padding: 10px 14px; border-radius: 10px; }
+.ask-code { margin: -4px 0 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); font-size: 13px; }
+.ask-code p { margin: 0 0 10px; color: var(--text-muted); }
+.ask-code .field { margin-bottom: 10px; }
+.ask-code-actions { display: flex; gap: 8px; }
+.ask-code.done { display: flex; gap: 10px; align-items: flex-start; color: var(--text-primary); }
+.ask-code.done svg { width: 18px; height: 18px; flex: none; color: var(--brand); }
