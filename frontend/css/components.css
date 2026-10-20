@@ -1011,3 +1011,22 @@ html { overflow-x: hidden; overflow-y: scroll; }
 .support-done { align-items: center; }
 .sidebar-cta svg { color: var(--text-secondary); }
 @media (max-width: 1000px) { .support { grid-template-columns: minmax(0, 1fr); } }
+
+/* the Customer support link at the foot of the menu */
+.support-cta {
+  display: flex; align-items: center; gap: 11px; padding: 10px 10px 10px 10px; margin-bottom: 8px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--surface-2); color: var(--text-primary); text-decoration: none;
+  transition: border-color .15s, background .15s;
+}
+.support-cta:hover { border-color: var(--text-muted); background: var(--surface-1); }
+.support-cta.active { border-color: var(--brand); background: var(--brand-soft); }
+.support-ico {
+  display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 999px;
+  background: var(--surface-1); border: 1px solid var(--line); color: var(--brand);
+}
+.support-ico svg { width: 18px; height: 18px; }
+.support-txt { flex: 1; min-width: 0; display: grid; line-height: 1.25; }
+.support-txt b { font-size: 13.5px; font-weight: 650; white-space: nowrap; }
+.support-txt small { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.support-cta > svg { width: 15px; height: 15px; color: var(--text-muted); flex: none; transition: transform .15s; }
+.support-cta:hover > svg { transform: translateX(2px); color: var(--text-primary); }
