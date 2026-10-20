@@ -300,7 +300,7 @@ function shell(me, signOut) {
   render(root,
     h("aside", { class: "sidebar", "aria-label": "Main navigation" },
       h("div", { class: "brand" }, logo(),
-        h("div", null, h("b", null, "Mentora"), h("small", null, "Self-learning strategy tutor")),
+        h("b", null, "Mentora"),
         h("button", { class: "icon-btn mobile-only", style: { marginLeft: "auto" }, "aria-label": "Close menu", onClick: () => setMenu(false) },
           icon("x"))),
       h("button", { class: "search-btn", onClick: palette }, icon("search"), h("span", null, "Search"), h("kbd", null, "Ctrl K")),
