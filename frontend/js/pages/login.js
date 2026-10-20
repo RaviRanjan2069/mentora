@@ -1,7 +1,6 @@
 // Sign in, create an account, forgotten password, reset (from the email link), verify email.
 import { api, ApiError, errorText } from "../api.js";
-import { h, hashParam, icon, logo, render, s } from "../dom.js";
-import { whiteboard } from "../whiteboard.js";
+import { h, hashParam, icon, logo, render } from "../dom.js";
 import { saveTheme, storedTheme } from "../theme.js";
 import { GENDERS } from "../people.js";
 import { openModal, toast } from "../ui.js";
@@ -335,7 +334,7 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
   }
 
   const TITLES = {
-    signin: ["Sign in to Mentora", "Pick up where you left off."],
+    signin: ["Welcome back", "Sign in to pick up where you left off."],
     signup: ["Create your account", "One account for the tutor, practice and your progress."],
     forgot: ["Forgot your password?", ""],
     reset: ["Choose a new password", ""],
@@ -375,9 +374,6 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
     `Anything else: write to ${st.options.support_email || "the Mentora team"}. Signed-in users can also use Help & support in the menu.`,
   ]);
 
-  const KICKERS = { signin: "Good to see you again!", signup: "Let's get you started" };
-  let board = null;
-
   function paint() {
     const [title, sub] = TITLES[st.mode];
     const body = { signin: signinForm, signup: signupForm, forgot: forgotForm, reset: resetForm, verify: verifyView }[st.mode]();
@@ -385,19 +381,14 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
       h("header", { class: "auth-brand" },
         h("span", { class: "auth-logo" }, logo()),
         h("span", { class: "auth-name" }, "Mentora")),
-      h("p", { class: "auth-tagline" }, "Learn anything, ",
-        h("span", { class: "auth-hand" }, "one step at a time",
-          s("svg", { viewBox: "0 0 100 12", preserveAspectRatio: "none", "aria-hidden": "true" },
-            s("path", { d: "M2 8 C 30 3, 60 11, 98 5" })))),
+      h("p", { class: "auth-tagline" }, "AI tutoring, adaptive practice and progress tracking, with your teachers."),
       h("div", { class: "auth-body" },
-        board ??= whiteboard(),
         h("main", { class: "card auth-card" },
           st.mode === "signin" || st.mode === "signup"
             ? h("div", { class: "auth-switch", role: "tablist" },
                 [["signin", "Sign in"], ["signup", "Create account"]].map(([m, l]) => h(
                   "button", { type: "button", role: "tab", "aria-selected": String(st.mode === m), class: st.mode === m ? "active" : "", onClick: () => go(m) }, l)))
             : null,
-          KICKERS[st.mode] ? h("p", { class: "auth-kicker" }, KICKERS[st.mode]) : null,
           h("h1", { class: "auth-title" }, title),
           sub ? h("p", { class: "muted", style: { marginTop: 0 } }, sub) : null,
           body,
