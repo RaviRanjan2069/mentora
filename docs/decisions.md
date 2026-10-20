@@ -429,14 +429,15 @@ service status from `/health`, a footer with Privacy, Terms and Help (short, acc
 Help shows the support address) and a light/dark/auto theme switch, and on wide screens a small
 illustration of the home page so new visitors see what they sign up for.
 
-## D51 — Sign-in page: simple form and "What is Mentora?"
+## D51 — Sign-in page: simple form and an animated tour
 
-A whiteboard animation and handwriting fonts were tried on the sign-in page and removed at the
-user's request in favour of a simple, professional page on a dotted background: the Mentora logo
-and name centred at the top, a one-line description, a larger sign in / create account card, and
-beside it (below it on narrow screens) a "What is Mentora?" panel so first-time visitors learn
-what they are signing up for: a short description, the five services (AI tutor, adaptive
-practice, goals and plans, progress analytics, teachers and classes), the eight subjects, three
-steps to get started and a line for teachers. D50's home-page illustration and feature list are
-gone; everything else from D50 (keep me signed in, Caps Lock warning, status, Privacy/Terms/Help,
-theme switch) stays.
+A whiteboard animation with handwriting fonts and then a text "What is Mentora?" panel were tried
+on the sign-in page; at the user's request the page now shows, beside a larger sign in / create
+account card on a dotted background, a short video-like tour (`frontend/js/showcase.js`, plain DOM
+and CSS): five scenes that play in turn, each with a caption, chapters to jump between and a
+play/pause button: the AI tutor answering a question, an adaptive MCQ round getting easier after
+a miss and harder after a right answer, a goal turned into a weekly plan that adapts, progress line
+graphs, and a teacher's quiz analysis. Everything shown is example data and is labelled
+"Example"; no real learners appear. One pause-aware clock drives the tour; it honours reduced
+motion (no autoplay, finished frames) and stops once the page changes. Everything else from D50
+(keep me signed in, Caps Lock warning, status, Privacy/Terms/Help, theme switch) stays.

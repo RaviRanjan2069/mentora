@@ -3,38 +3,8 @@ import { api, ApiError, errorText } from "../api.js";
 import { h, hashParam, icon, logo, render } from "../dom.js";
 import { saveTheme, storedTheme } from "../theme.js";
 import { GENDERS } from "../people.js";
+import { showcase } from "../showcase.js";
 import { openModal, toast } from "../ui.js";
-
-// What new visitors see beside the form: what Mentora is and what is inside.
-const SERVICES = [
-  ["bot", "AI tutor", "Ask any question in your own words and get step-by-step explanations, any time."],
-  ["target", "Adaptive practice", "Rounds of 10 questions that get harder as you improve and bring back what you missed."],
-  ["layers", "Goals & plans", "Pick a goal and get a week-by-week roadmap that adjusts to how you practise."],
-  ["trend", "Progress analytics", "Line graphs of your real results in every subject, so you know what to work on next."],
-  ["users", "Teachers & classes", "Join your teacher's class with a code for notes, files, quizzes and feedback."],
-];
-const SUBJECTS = ["Python", "Java", "Data structures", "DBMS", "Operating systems", "Computer networks", "Web development", "Machine learning"];
-const STEPS = ["Create a free account", "Set a goal or join your teacher's class", "Practise, ask and track your progress"];
-
-function about() {
-  return h("section", { class: "auth-about", "aria-labelledby": "about-title" },
-    h("p", { class: "about-eyebrow" }, "What is Mentora?"),
-    h("h2", { id: "about-title", class: "about-title" }, "One place to learn, practise and track your progress"),
-    h("p", { class: "about-lead" },
-      "Mentora is a learning platform for students and their teachers. It brings an AI tutor, practice that adapts to you, "
-      + "study plans and progress tracking together, and connects you with your teachers."),
-    h("ul", { class: "about-services" }, SERVICES.map(([ic, name, text]) => h("li", null,
-      h("span", { class: "about-ico" }, icon(ic)),
-      h("div", null, h("b", null, name), h("span", null, text))))),
-    h("div", { class: "about-block" },
-      h("h3", null, "Subjects"),
-      h("ul", { class: "about-subjects" }, SUBJECTS.map((x) => h("li", null, x)))),
-    h("div", { class: "about-block" },
-      h("h3", null, "How it works"),
-      h("ol", { class: "about-steps" }, STEPS.map((x) => h("li", null, x)))),
-    h("p", { class: "about-teachers" }, h("b", null, "For teachers: "),
-      "create folders for your subject, share material, set quizzes and see how each student is doing."));
-}
 
 /** 0-4: length and variety of characters. */
 function strength(pw) {
@@ -405,6 +375,12 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
     `Anything else: write to ${st.options.support_email || "the Mentora team"}. Signed-in users can also use Help & support in the menu.`,
   ]);
 
+  let tour = null;
+  const tourEl = () => {
+    if (!tour || tour.stopped) tour = showcase();
+    return tour;
+  };
+
   function paint() {
     const [title, sub] = TITLES[st.mode];
     const body = { signin: signinForm, signup: signupForm, forgot: forgotForm, reset: resetForm, verify: verifyView }[st.mode]();
@@ -424,7 +400,9 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
           sub ? h("p", { class: "muted", style: { marginTop: 0 } }, sub) : null,
           body,
           st.mode === "signin" ? devForm() : null),
-        st.mode === "signin" || st.mode === "signup" ? about() : null),
+        st.mode === "signin" || st.mode === "signup"
+          ? h("div", { class: "auth-show" }, h("p", { class: "about-eyebrow" }, "See Mentora in action"), tourEl())
+          : null),
       h("footer", { class: "auth-footer" },
         h("div", { class: "auth-footer-left" },
           h("span", null, `© ${new Date().getFullYear()} Mentora`),
