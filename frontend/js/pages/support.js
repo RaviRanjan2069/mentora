@@ -158,9 +158,15 @@ export default function support(root) {
             h("h2", null, "Contact"),
             h("p", { class: "muted small", style: { margin: "0 0 6px" } }, "Prefer email? Write to us directly:"),
             h("p", { class: "desk-mail" }, d.email),
-            h("div", { class: "row" },
-              h("a", { class: "btn small", href: `mailto:${d.email}?subject=${encodeURIComponent("Mentora support")}` }, "Open email"),
-              h("button", { class: "btn small", onClick: () => copyText(d.email) }, icon("copy"), " Copy"))),
+            h("div", { class: "desk-mail-actions" },
+              // Gmail in a new tab works in every browser; mailto needs a mail app set up on the device
+              h("a", {
+                class: "desk-mail-btn", target: "_blank", rel: "noopener noreferrer",
+                href: `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(d.email)}&su=${encodeURIComponent("Mentora support")}`,
+                title: `Write to ${d.email} in Gmail`, "aria-label": `Email ${d.email} in Gmail`,
+              }, icon("mail"), h("span", null, "Email us")),
+              h("button", { class: "icon-btn desk-copy", title: "Copy the address", "aria-label": "Copy the address", onClick: () => copyText(d.email) }, icon("copy"))),
+            h("a", { class: "desk-mailapp", href: `mailto:${d.email}?subject=${encodeURIComponent("Mentora support")}` }, "Use your mail app instead")),
           h("section", { class: "card" },
             h("h2", null, "Before you send"),
             h("ul", { class: "desk-tips" },
