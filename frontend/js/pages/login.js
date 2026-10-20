@@ -5,6 +5,37 @@ import { saveTheme, storedTheme } from "../theme.js";
 import { GENDERS } from "../people.js";
 import { openModal, toast } from "../ui.js";
 
+// What new visitors see beside the form: what Mentora is and what is inside.
+const SERVICES = [
+  ["bot", "AI tutor", "Ask any question in your own words and get step-by-step explanations, any time."],
+  ["target", "Adaptive practice", "Rounds of 10 questions that get harder as you improve and bring back what you missed."],
+  ["layers", "Goals & plans", "Pick a goal and get a week-by-week roadmap that adjusts to how you practise."],
+  ["trend", "Progress analytics", "Line graphs of your real results in every subject, so you know what to work on next."],
+  ["users", "Teachers & classes", "Join your teacher's class with a code for notes, files, quizzes and feedback."],
+];
+const SUBJECTS = ["Python", "Java", "Data structures", "DBMS", "Operating systems", "Computer networks", "Web development", "Machine learning"];
+const STEPS = ["Create a free account", "Set a goal or join your teacher's class", "Practise, ask and track your progress"];
+
+function about() {
+  return h("section", { class: "auth-about", "aria-labelledby": "about-title" },
+    h("p", { class: "about-eyebrow" }, "What is Mentora?"),
+    h("h2", { id: "about-title", class: "about-title" }, "One place to learn, practise and track your progress"),
+    h("p", { class: "about-lead" },
+      "Mentora is a learning platform for students and their teachers. It brings an AI tutor, practice that adapts to you, "
+      + "study plans and progress tracking together, and connects you with your teachers."),
+    h("ul", { class: "about-services" }, SERVICES.map(([ic, name, text]) => h("li", null,
+      h("span", { class: "about-ico" }, icon(ic)),
+      h("div", null, h("b", null, name), h("span", null, text))))),
+    h("div", { class: "about-block" },
+      h("h3", null, "Subjects"),
+      h("ul", { class: "about-subjects" }, SUBJECTS.map((x) => h("li", null, x)))),
+    h("div", { class: "about-block" },
+      h("h3", null, "How it works"),
+      h("ol", { class: "about-steps" }, STEPS.map((x) => h("li", null, x)))),
+    h("p", { class: "about-teachers" }, h("b", null, "For teachers: "),
+      "create folders for your subject, share material, set quizzes and see how each student is doing."));
+}
+
 /** 0-4: length and variety of characters. */
 function strength(pw) {
   let score = 0;
@@ -392,7 +423,8 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
           h("h1", { class: "auth-title" }, title),
           sub ? h("p", { class: "muted", style: { marginTop: 0 } }, sub) : null,
           body,
-          st.mode === "signin" ? devForm() : null)),
+          st.mode === "signin" ? devForm() : null),
+        st.mode === "signin" || st.mode === "signup" ? about() : null),
       h("footer", { class: "auth-footer" },
         h("div", { class: "auth-footer-left" },
           h("span", null, `© ${new Date().getFullYear()} Mentora`),
