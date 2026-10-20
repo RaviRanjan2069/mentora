@@ -367,3 +367,26 @@ def test_deleting_a_teacher_removes_their_code(app: FastAPI, mail: OutboxMailer)
     )
     with app.state.session_factory() as db:
         assert db.count(m.ClassCode) == 0
+
+
+def test_keep_me_signed_in_off_ends_the_session(app: FastAPI, mail: OutboxMailer) -> None:
+    import time
+
+    from mentora.api import deps
+
+    signup(app, "kim")
+    c = TestClient(app)
+    login = {"login": "kim", "password": "correct horse 42", "remember": False}
+    assert c.post("/api/auth/login", json=login).status_code == 200
+    assert c.get("/api/me").status_code == 200
+    real = time.time
+    try:  # 13 hours later
+        deps.time.time = lambda: real() + 13 * 3600  # type: ignore[attr-defined]
+        assert c.get("/api/me").status_code == 401
+        kept = TestClient(app)
+        assert kept.post("/api/auth/login", json={**login, "remember": True}).status_code == 200
+        assert kept.get("/api/me").status_code == 200  # "Keep me signed in" lasts longer
+    finally:
+        deps.time.time = real  # type: ignore[attr-defined]
+    options = TestClient(app).get("/api/auth/options").json()
+    assert "support_email" in options

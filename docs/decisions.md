@@ -419,3 +419,13 @@ note and date show on the user's Help & support page, and the user is emailed th
 whose problem is not fixed presses Reopen: the request opens again and support gets a new email
 with a fresh link (the old one stops working).
 
+## D50 — Sign-in page details
+
+The sign-in page keeps the centred brand and adds what users expect from a production sign-in:
+"Keep me signed in" (on: the session lasts `accounts.session_days`; off: it ends after 12 hours,
+checked on every request through an expiry stored in the signed session cookie), a Caps Lock
+warning on password fields, a spinner on the submit button, errors in an alert box, a live
+service status from `/health`, a footer with Privacy, Terms and Help (short, accurate summaries;
+Help shows the support address) and a light/dark/auto theme switch, and on wide screens a small
+illustration of the home page so new visitors see what they sign up for.
+

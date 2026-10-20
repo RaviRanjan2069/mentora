@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Annotated, Any, Literal
@@ -102,6 +103,10 @@ def current_user(request: Request) -> User:
     except TypeError:  # a cookie from an older version
         request.session.clear()
         raise HTTPException(401, "Not signed in") from None
+    until = request.session.get("until")
+    if isinstance(until, (int, float)) and time.time() > until:
+        request.session.clear()  # "Keep me signed in" was off and the short session is over
+        raise HTTPException(401, "Your session has ended. Please sign in again.")
     if user.account_id is not None:
         # A password change, reset or deleted account signs out every other device.
         from mentora.db import models as m
@@ -126,8 +131,20 @@ def require_teacher(user: Annotated[User, Depends(current_user)]) -> User:
     return user
 
 
-def sign_in(request: Request, user: User) -> None:
+SHORT_SESSION_S = 12 * 3600  # when "Keep me signed in" is off
+
+
+def sign_in(request: Request, user: User, remember: bool | None = None) -> None:
+    """Stores the user in the signed session cookie. ``remember`` False ends the session after
+    12 hours (the cookie itself lasts ``accounts.session_days``); None keeps the current limit."""
+    until = request.session.get("until")
     request.session.clear()
+    if remember is False:
+        until = int(time.time()) + SHORT_SESSION_S
+    elif remember is True:
+        until = None
+    if until is not None:
+        request.session["until"] = until
     request.session["user"] = {
         "id": user.id,
         "role": user.role,

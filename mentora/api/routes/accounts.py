@@ -62,13 +62,13 @@ def _account(db: Store, user: User) -> m.Account:
     return account
 
 
-def _sign_in(request: Request, account: m.Account) -> None:
+def _sign_in(request: Request, account: m.Account, remember: bool | None = None) -> None:
     user_id = account.learner_id if account.role == "learner" else f"tch_{account.id}"
     role: Role = "teacher" if account.role == "teacher" else "learner"
     user = User(
         user_id or account.id, role, account.name, "account", account.id, account.session_version
     )
-    sign_in(request, user)
+    sign_in(request, user, remember)
 
 
 def _link(request: Request, path: str, token: str) -> str:
@@ -146,13 +146,14 @@ class SignupIn(BaseModel):
 
 
 @router.get("/auth/options")
-def auth_options(request: Request) -> dict[str, bool]:
+def auth_options(request: Request) -> dict[str, Any]:
     """What the sign-in page offers."""
     s = _settings(request)
     return {
         "dev_login": s.dev_login,
         "email": _mailer(request).configured,
         "teacher_signup": True,
+        "support_email": s.support_email or s.mail_from,
     }
 
 
@@ -222,7 +223,7 @@ def signup(body: SignupIn, request: Request, db: Db) -> dict[str, Any]:
     db.commit()
     sent = _send_verification(request, db, account) if mailer.configured else False
     db.commit()
-    _sign_in(request, account)
+    _sign_in(request, account, True)
     code_row = db.find_one(m.ClassCode, {"teacher_id": account.id})
     return {
         "profile": profile_of(db, account),
@@ -234,6 +235,7 @@ def signup(body: SignupIn, request: Request, db: Db) -> dict[str, Any]:
 class LoginIn(BaseModel):
     login: str = Field(min_length=1, max_length=254)  # user id or email
     password: str = Field(min_length=1, max_length=128)
+    remember: bool = True  # "Keep me signed in"
 
 
 _DUMMY_HASH = acc.hash_password("timing-equaliser-not-a-real-password")
@@ -262,7 +264,7 @@ def login(body: LoginIn, request: Request, db: Db) -> ProfileOut:
         raise HTTPException(401, "Wrong user id, email or password.")
     account.failed_logins, account.locked_until, account.last_login_at = 0, None, now
     db.commit()
-    _sign_in(request, account)
+    _sign_in(request, account, body.remember)
     return profile_of(db, account)
 
 
@@ -341,7 +343,7 @@ def reset_password(body: ResetIn, request: Request, db: Db) -> ProfileOut:
     account.failed_logins, account.locked_until = 0, None
     account.email_verified = True  # the reset link proved they own the address
     db.commit()
-    _sign_in(request, account)
+    _sign_in(request, account, True)
     return profile_of(db, account)
 
 

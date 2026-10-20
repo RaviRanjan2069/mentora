@@ -1,8 +1,9 @@
 // Sign in, create an account, forgotten password, reset (from the email link), verify email.
 import { api, ApiError, errorText } from "../api.js";
-import { h, hashParam, icon, logo, render } from "../dom.js";
+import { h, hashParam, icon, logo, render, s } from "../dom.js";
+import { saveTheme, storedTheme } from "../theme.js";
 import { GENDERS } from "../people.js";
-import { toast } from "../ui.js";
+import { openModal, toast } from "../ui.js";
 
 const FEATURES = [
   ["target", "Practice that adapts", "Rounds of 10 questions that come back to the topics you miss."],
@@ -29,7 +30,12 @@ function passwordField(st, key, label, { onInput, autocomplete = "current-passwo
       st[key] = e.target.value;
       onInput?.(e);
     },
+    onKeyup: (e) => caps(e),
+    onKeydown: (e) => caps(e),
+    onBlur: () => { warn.hidden = true; },
   });
+  const warn = h("span", { class: "caps-warn", hidden: true, role: "status" }, icon("alert"), " Caps Lock is on");
+  const caps = (e) => { warn.hidden = !(e.getModifierState && e.getModifierState("CapsLock")); };
   const level = strength(st[key]);
   return h("label", { class: "field" },
     h("span", null, label),
@@ -43,6 +49,7 @@ function passwordField(st, key, label, { onInput, autocomplete = "current-passwo
           input.focus();
         },
       }, st[`show_${key}`] ? "Hide" : "Show")),
+    warn,
     meter
       ? [h("div", { class: "strength", "aria-hidden": "true" },
           h("span", { "data-meter": key, style: { width: `${(level / 4) * 100}%`, background: STRENGTH[level][1] } })),
@@ -65,7 +72,7 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
   const st = {
     mode: initialMode, busy: false, error: null, done: null, options: { dev_login: false, email: false, teacher_signup: true },
     login: "", password: "", role: "learner", name: "", username: "", email: "", password2: "",
-    gender: "prefer_not_to_say", accept: false, userCheck: null, devName: "", devRole: "learner", devCode: "",
+    gender: "prefer_not_to_say", accept: false, remember: true, status: null, userCheck: null, devName: "", devRole: "learner", devCode: "",
     classCode: "",
   };
   let checkTimer = 0;
@@ -91,7 +98,7 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
   const signIn = (e) => {
     e.preventDefault();
     run(async () => {
-      await api.post("/api/auth/login", { login: st.login.trim(), password: st.password });
+      await api.post("/api/auth/login", { login: st.login.trim(), password: st.password, remember: st.remember });
       window.location.hash = "#/";
       onSignedIn();
     });
@@ -216,16 +223,18 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
   const submit = (label, busyLabel) => h("button", {
     class: "btn primary", type: "submit", disabled: st.busy,
     style: { width: "100%", justifyContent: "center", padding: "11px 14px" },
-  }, st.busy ? busyLabel : label);
+  }, st.busy ? [h("span", { class: "spinner", "aria-hidden": "true" }), ` ${busyLabel}`] : label);
 
-  const errorBox = () => (st.error ? h("p", { class: "error", role: "alert" }, st.error) : null);
+  const errorBox = () => (st.error ? h("div", { class: "auth-alert", role: "alert" }, icon("alert"), h("span", null, st.error)) : null);
 
   function signinForm() {
     return h("form", { onSubmit: signIn },
       text("login", "User id or email", { autocomplete: "username", required: true, maxlength: "254", autofocus: true }),
       passwordField(st, "password", "Password"),
-      h("div", { class: "row between", style: { margin: "-4px 0 14px" } },
-        h("span"),
+      h("div", { class: "auth-row" },
+        h("label", { class: "check-line keep" },
+          h("input", { type: "checkbox", checked: st.remember, onChange: (e) => { st.remember = e.target.checked; } }),
+          h("span", null, "Keep me signed in")),
         h("button", { type: "button", class: "link-btn inline", onClick: () => go("forgot") }, "Forgot password?")),
       submit("Sign in", "Signing in…"),
       errorBox());
@@ -338,6 +347,57 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
     verify: ["Confirm your email", ""],
   };
 
+  function preview() {
+    return h("aside", { class: "auth-preview", "aria-hidden": "true" },
+      h("div", { class: "pv-head" }, h("span", { class: "pv-date" }, "This week"), h("span", { class: "pv-dots" }, h("i"), h("i"), h("i"))),
+      h("div", { class: "pv-figs" },
+        h("div", null, h("small", null, "Accuracy"), h("b", null, "77%"), h("em", null, "+20 pts")),
+        h("div", null, h("small", null, "Questions"), h("b", null, "90"), h("em", null, "+10")),
+        h("div", null, h("small", null, "Streak"), h("b", null, "5"), h("em", { class: "flat" }, "days"))),
+      s("svg", { class: "pv-graph", viewBox: "0 0 300 90", preserveAspectRatio: "none" },
+        [22, 45, 68].map((y) => s("line", { x1: 0, x2: 300, y1: y, y2: y, class: "pv-grid" })),
+        s("path", { class: "pv-area", d: "M0,70 L38,62 L75,66 L112,48 L150,52 L188,36 L225,30 L262,22 L300,18 L300,90 L0,90 Z" }),
+        s("path", { class: "pv-line", d: "M0,70 L38,62 L75,66 L112,48 L150,52 L188,36 L225,30 L262,22 L300,18" })),
+      h("ol", { class: "pv-next" },
+        h("li", null, h("b", null, "Finish your Python round"), h("span", null, "4 of 10 answered")),
+        h("li", null, h("b", null, "Week 3 of your Java plan"), h("span", null, "Arrays and strings")),
+        h("li", null, h("b", null, "Practise Exceptions"), h("span", null, "40% right so far"))),
+      h("p", { class: "pv-caption" }, "Your home page after you sign in: real numbers from your practice."));
+  }
+
+  function statusDot() {
+    const up = st.status;
+    const [tone, text] = up === null ? ["", "Checking service…"] : up ? ["ok", "All systems operational"] : ["warn", "Some services are slow right now"];
+    return h("span", { class: `auth-status-dot ${tone}` }, h("i"), text);
+  }
+
+  function themeSwitch() {
+    const cur = storedTheme();
+    return h("span", { class: "auth-theme", role: "radiogroup", "aria-label": "Theme" },
+      [["system", "Auto"], ["light", "Light"], ["dark", "Dark"]].map(([v, l]) => h("button", {
+        type: "button", role: "radio", "aria-checked": String(cur === v), class: cur === v ? "on" : "",
+        onClick: () => { saveTheme(v); paint(); },
+      }, l)));
+  }
+
+  const info = (title, paras) => openModal(title, () => h("div", { class: "legal" }, paras.map((x) => h("p", null, x))));
+  const privacy = () => info("Privacy", [
+    "Mentora stores your name, user id, email, gender and photo to run your account. Your learning activity is kept under a pseudonym, not your name.",
+    "Your teachers see your results only after you join their class. The AI tutor never sees your email or password.",
+    "You can download your data and delete your account and all your learning data at any time from Profile and Settings.",
+    "This is a demo service for learning: please do not enter sensitive information.",
+  ]);
+  const terms = () => info("Terms of use", [
+    "Mentora is a learning tool offered as is, for study and teaching. Use it honestly: do not try to break it, misuse other people's accounts or upload harmful material.",
+    "Practice questions and AI tutor answers can contain mistakes. Check important facts with your teacher or course material.",
+    "Teachers are responsible for the material and quizzes they publish in their folders.",
+  ]);
+  const help = () => info("Help", [
+    "Forgot your password? Use Forgot password on the Sign in tab; we email you a reset link.",
+    "Did not get our email? Check your spam folder, then use Resend on your profile after signing in.",
+    `Anything else: write to ${st.options.support_email || "the Mentora team"}. Signed-in users can also use Help & support in the menu.`,
+  ]);
+
   function paint() {
     const [title, sub] = TITLES[st.mode];
     const body = { signin: signinForm, signup: signupForm, forgot: forgotForm, reset: resetForm, verify: verifyView }[st.mode]();
@@ -346,22 +406,34 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
         h("span", { class: "auth-logo" }, logo()),
         h("span", { class: "auth-name" }, "Mentora")),
       h("p", { class: "auth-tagline" }, "Practise, plan and track your learning, with your teachers."),
-      h("main", { class: "card auth-card" },
-        st.mode === "signin" || st.mode === "signup"
-          ? h("div", { class: "auth-switch", role: "tablist" },
-              [["signin", "Sign in"], ["signup", "Create account"]].map(([m, l]) => h(
-                "button", { type: "button", role: "tab", "aria-selected": String(st.mode === m), class: st.mode === m ? "active" : "", onClick: () => go(m) }, l)))
-          : null,
-        h("h1", { class: "auth-title" }, title),
-        sub ? h("p", { class: "muted", style: { marginTop: 0 } }, sub) : null,
-        body,
-        st.mode === "signin" ? devForm() : null),
+      h("div", { class: "auth-body" },
+        h("main", { class: "card auth-card" },
+          st.mode === "signin" || st.mode === "signup"
+            ? h("div", { class: "auth-switch", role: "tablist" },
+                [["signin", "Sign in"], ["signup", "Create account"]].map(([m, l]) => h(
+                  "button", { type: "button", role: "tab", "aria-selected": String(st.mode === m), class: st.mode === m ? "active" : "", onClick: () => go(m) }, l)))
+            : null,
+          h("h1", { class: "auth-title" }, title),
+          sub ? h("p", { class: "muted", style: { marginTop: 0 } }, sub) : null,
+          body,
+          st.mode === "signin" ? devForm() : null),
+        preview()),
       h("ul", { class: "auth-points" }, FEATURES.map(([, head, text]) => h("li", null, h("b", null, head), h("span", null, text)))),
-      h("footer", { class: "auth-foot-note" }, "Students join their teacher with a 10-digit class code.")));
+      h("footer", { class: "auth-footer" },
+        h("div", { class: "auth-footer-left" },
+          h("span", null, `© ${new Date().getFullYear()} Mentora`),
+          statusDot()),
+        h("nav", { class: "auth-links", "aria-label": "About Mentora" },
+          h("button", { type: "button", class: "link-btn inline", onClick: privacy }, "Privacy"),
+          h("button", { type: "button", class: "link-btn inline", onClick: terms }, "Terms"),
+          h("button", { type: "button", class: "link-btn inline", onClick: help }, "Help"),
+          themeSwitch()))));
     if (st.mode === "signup") setHint();
   }
 
   api.get("/api/auth/options").then((o) => { st.options = o; paint(); }).catch(() => undefined);
+  fetch("/health").then((r) => r.json()).then((h0) => { st.status = h0.status === "ok" && h0.database === "ok"; paint(); })
+    .catch(() => { st.status = false; paint(); });
   paint();
   if (st.mode === "verify") {
     api.post("/api/auth/verify", { token: hashParam("token") ?? "" })
