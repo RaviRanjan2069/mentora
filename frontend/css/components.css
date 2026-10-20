@@ -1033,3 +1033,5 @@ html { overflow-x: hidden; overflow-y: scroll; }
 .desk-resolution { margin-top: 6px; padding: 8px 10px; border-left: 3px solid var(--ok); background: var(--ok-soft); border-radius: 0 6px 6px 0; font-size: 13px; max-width: 720px; }
 .desk-status { white-space: nowrap; }
 .desk-status .text-btn { display: block; margin-top: 6px; font-size: 12.5px; }
+.desk-status .desk-delete { color: var(--text-muted); font-weight: 500; }
+.desk-status .desk-delete:hover { color: var(--danger); }

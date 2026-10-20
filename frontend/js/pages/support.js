@@ -26,6 +26,20 @@ export default function support(root) {
     }
   }
 
+  async function remove(t) {
+    const note = t.status === "open" ? " It is still open, so the Mentora team will no longer be able to mark it as resolved." : "";
+    if (!window.confirm(`Delete ${t.number} “${t.subject}”?${note} This cannot be undone.`)) return;
+    try {
+      await api.del(`/api/support/${t.number}`);
+      st.data = await api.get("/api/support");
+      if (st.sent?.number === t.number) st.sent = null;
+      toast(`${t.number} deleted.`);
+      paint();
+    } catch (e) {
+      toast(errorText(e), "error");
+    }
+  }
+
   async function reopen(t) {
     if (!window.confirm(`Reopen ${t.number}? The Mentora team will be told it is not fixed yet.`)) return;
     try {
@@ -120,7 +134,8 @@ export default function support(root) {
               h("td", { class: "desk-status" }, h("span", { class: `badge ${t.status === "open" ? "warn" : "ok"}` }, t.status === "open" ? "Open" : "Resolved"),
                 t.status === "resolved"
                   ? h("button", { class: "text-btn small", title: "Not fixed? Tell the team", onClick: () => reopen(t) }, "Reopen")
-                  : null)))))));
+                  : null,
+                h("button", { class: "text-btn small desk-delete", title: "Remove this request from your list", onClick: () => remove(t) }, "Delete"))))))));
   }
 
   function paint() {

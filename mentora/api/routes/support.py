@@ -240,10 +240,7 @@ def raise_ticket(body: TicketIn, request: Request, user: Me, db: Db) -> TicketOu
     return _out(ticket)
 
 
-@router.post("/{number}/reopen")
-def reopen(number: str, request: Request, user: Me, db: Db) -> TicketOut:
-    """The user says it is not fixed: the request opens again and support gets a new link."""
-    account = _account(db, user)
+def _own_ticket(db: Store, account: m.Account, number: str) -> m.SupportTicket:
     try:
         ticket_id = int(number.upper().removeprefix("MEN-"))
     except ValueError as exc:
@@ -251,6 +248,23 @@ def reopen(number: str, request: Request, user: Me, db: Db) -> TicketOut:
     ticket = db.get(m.SupportTicket, ticket_id)
     if ticket is None or ticket.account_id != account.id:
         raise HTTPException(404, "No such request.")
+    return ticket
+
+
+@router.delete("/{number}", status_code=204)
+def delete_ticket(number: str, user: Me, db: Db) -> None:
+    """Users can remove their own requests from their list (the emails already sent stay in the
+    inboxes; an open request's resolve link stops working)."""
+    ticket = _own_ticket(db, _account(db, user), number)
+    db.delete_many(m.SupportTicket, {"id": ticket.id})
+    db.commit()
+
+
+@router.post("/{number}/reopen")
+def reopen(number: str, request: Request, user: Me, db: Db) -> TicketOut:
+    """The user says it is not fixed: the request opens again and support gets a new link."""
+    account = _account(db, user)
+    ticket = _own_ticket(db, account, number)
     if ticket.status != "resolved":
         raise HTTPException(409, "This request is still open.")
     if not _limiter(request).allow(account.id):

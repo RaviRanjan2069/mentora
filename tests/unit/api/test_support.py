@@ -133,3 +133,20 @@ def test_old_requests_get_a_resolve_link_once(app: FastAPI, outbox: Outbox) -> N
     assert "/api/support/resolve/" in mail[2] and mail[3] == "asha@example.com"
     with app.state.session_factory() as db:
         assert email_missing_resolve_links(db, app.state.settings, outbox) == 0  # only once
+
+
+def test_users_delete_their_own_requests(app: FastAPI, outbox: Outbox) -> None:
+    import re
+
+    asha = signup(app, "asha")
+    body = {"category": "bug", "subject": "Old request", "message": "No longer a problem."}
+    t = asha.post("/api/support", json=body).json()
+    link = re.search(r"/api/support/resolve/(\d+)\?token=([\w-]+)", outbox.sent[0][2])
+    assert link
+    bob = signup(app, "bob")
+    assert bob.delete(f"/api/support/{t['number']}").status_code == 404  # not his
+    assert asha.delete(f"/api/support/{t['number']}").status_code == 204
+    assert asha.get("/api/support").json()["tickets"] == []
+    staff = TestClient(app)  # the emailed resolve link no longer works
+    gone = staff.get(f"/api/support/resolve/{link.group(1)}", params={"token": link.group(2)})
+    assert gone.status_code == 404
