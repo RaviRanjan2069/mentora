@@ -1125,7 +1125,7 @@ html { overflow-x: hidden; overflow-y: scroll; }
   font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--text-secondary); white-space: nowrap; }
 .wb-live i { width: 8px; height: 8px; border-radius: 99px; background: var(--wb-red); animation: wb-pulse 1.6s ease-in-out infinite; }
 @keyframes wb-pulse { 50% { opacity: .35; } }
-.wb-subject { font-family: var(--hand); font-size: 26px; font-weight: 700; color: var(--wb-orange); line-height: 1; }
+.wb-subject { font-family: var(--hand); font-size: 26px; font-weight: 700; color: var(--wb-orange); line-height: 1; white-space: nowrap; }
 .wb-dots { margin-left: auto; display: inline-flex; gap: 6px; }
 .wb-dots button { width: 22px; height: 22px; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; }
 .wb-dots button::after { content: ""; width: 9px; height: 9px; border-radius: 99px; border: 2px solid var(--wb-ink); opacity: .35; transition: opacity .2s, background-color .2s; }
@@ -1135,7 +1135,7 @@ html { overflow-x: hidden; overflow-y: scroll; }
 .wb-surface { display: grid; align-content: start; gap: 2px; min-width: 0; font-family: var(--hand); font-weight: 600; transition: opacity .5s, transform .5s, filter .5s; }
 .wb-surface.erasing { opacity: 0; transform: translateX(14px); filter: blur(2px); }
 .wb-line { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 16px; font-size: 34px; line-height: 1.32; min-height: 1.32em; }
-.wb-text { position: relative; display: inline-block; white-space: pre; }
+.wb-text { position: relative; display: inline-block; max-width: 100%; white-space: pre-wrap; }
 .wb-title { font-size: 40px; font-weight: 700; color: var(--wb-blue); margin-bottom: 8px; }
 .wb-code { font-size: 32px; }
 .wb-answer { color: var(--wb-red); font-weight: 700; }
@@ -1153,10 +1153,17 @@ html { overflow-x: hidden; overflow-y: scroll; }
 .wb-mark-tick { right: -40px; top: 50%; width: 28px; height: 28px; transform: translateY(-50%); }
 .wb-mark-tick path { stroke: var(--wb-green); stroke-width: 3.5; }
 .wb-aside .wb-text { margin-right: 40px; }
+.wb-chart { width: min(100%, 380px); height: auto; margin: 4px 0 6px; overflow: visible;
+  clip-path: inset(-10% 100% -10% -10%); transition: clip-path 1s ease-out; }
+.drawn .wb-chart { clip-path: inset(-10% -10% -10% -10%); }
+.wb-axis { fill: none; stroke: var(--wb-ink); stroke-opacity: .45; stroke-width: 2; stroke-linecap: round; }
+.wb-plot { fill: none; stroke: var(--wb-blue); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.wb-point { fill: var(--wb-board); stroke: var(--wb-blue); stroke-width: 2.5; }
 .wb-answer .wb-text { margin: 0 16px; }
 
 .wb-side { display: inline-flex; align-items: center; gap: 6px; font-size: 25px; font-weight: 600; color: var(--wb-orange);
-  opacity: 0; transform: translateX(-6px); transition: opacity .4s .15s, transform .4s .15s; }
+  opacity: 0; transform: translateX(-6px); transition: opacity .4s .15s, transform .4s .15s; max-width: 100%; min-width: 0; }
+.wb-arrow { flex: none; }
 .drawn .wb-side { opacity: 1; transform: none; }
 .wb-arrow { width: 38px; height: 20px; overflow: visible; clip-path: inset(-20% -20% -20% 100%); transition: clip-path .5s ease-out; }
 .wb-arrow path { fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
@@ -1180,7 +1187,7 @@ html { overflow-x: hidden; overflow-y: scroll; }
 
 @media (prefers-reduced-motion: reduce) {
   .wb-live i, .wb-caret { animation: none; }
-  .wb-surface, .wb-mark, .wb-arrow, .wb-side { transition: none; }
+  .wb-surface, .wb-mark, .wb-arrow, .wb-side, .wb-chart { transition: none; }
 }
 @media (max-width: 700px) {
   .auth-page { padding: 30px 16px 26px; background-size: 18px 18px; }
@@ -1195,6 +1202,8 @@ html { overflow-x: hidden; overflow-y: scroll; }
   .wb-code { font-size: 24px; }
   .wb-aside { font-size: 22px; }
   .wb-side { font-size: 20px; }
+  .wb-live { display: none; }
+  .wb-bar { gap: 8px; }
 }
 
 .auth-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: -2px 0 16px; }
