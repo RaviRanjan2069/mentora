@@ -55,6 +55,7 @@ class TicketOut(BaseModel):
     subject: str
     message: str
     page: str
+    priority: str
     status: str
     created_at: datetime
 
@@ -67,6 +68,7 @@ def _out(t: m.SupportTicket) -> TicketOut:
         subject=t.subject,
         message=t.message,
         page=t.page,
+        priority=t.priority,
         status=t.status,
         created_at=t.created_at,
     )
@@ -89,6 +91,7 @@ class TicketIn(BaseModel):
     subject: str = Field(max_length=200)
     message: str = Field(max_length=5000)
     page: str = Field(default="", max_length=200)
+    priority: str = "normal"
 
 
 @router.post("", status_code=201)
@@ -96,6 +99,8 @@ def raise_ticket(body: TicketIn, request: Request, user: Me, db: Db) -> TicketOu
     account = _account(db, user)
     if body.category not in CATEGORIES:
         raise HTTPException(422, "Choose what the problem is about.")
+    if body.priority not in ("normal", "high"):
+        raise HTTPException(422, "Choose a priority.")
     subject = " ".join(body.subject.split())
     message = body.message.strip()
     if len(subject) < 4:
@@ -112,6 +117,7 @@ def raise_ticket(body: TicketIn, request: Request, user: Me, db: Db) -> TicketOu
         subject=subject,
         message=message,
         page=" ".join(body.page.split()),
+        priority=body.priority,
     )
     db.add(ticket)
     db.commit()
@@ -119,26 +125,33 @@ def raise_ticket(body: TicketIn, request: Request, user: Me, db: Db) -> TicketOu
     s: Settings = request.app.state.settings
     mailer: Mailer = request.app.state.mailer
     who = f"{account.name} (@{account.username}, {account.role}) <{account.email}>"
+    urgency = "High - it stops them from studying" if ticket.priority == "high" else "Normal"
     try:
         inbox = _inbox(s)
         if inbox:
             mailer.send(
                 inbox,
-                f"[{ticket.number}] {CATEGORIES[ticket.category]}: {subject}",
-                f"New support complaint {ticket.number}\n\nFrom: {who}\n"
-                f"Category: {CATEGORIES[ticket.category]}\n"
-                f"Where: {ticket.page or 'not given'}\n\n{message}\n\n"
+                f"[{ticket.number}]{' [HIGH]' if ticket.priority == 'high' else ''} "
+                f"{CATEGORIES[ticket.category]}: {subject}",
+                f"New support request {ticket.number}\n\n"
+                f"From: {who}\n"
+                f"Topic: {CATEGORIES[ticket.category]}\n"
+                f"Priority: {urgency}\n"
+                f"Where in Mentora: {ticket.page or 'not given'}\n"
+                f"Sent: {ticket.created_at:%d %b %Y, %H:%M} UTC\n\n"
+                f"Subject: {subject}\n\n{message}\n\n"
                 "Reply to this email to answer the user directly.",
                 reply_to=account.email,
             )
             ticket.emailed = True
         mailer.send(
             account.email,
-            f"We received your complaint {ticket.number}",
-            f"Hi {account.name},\n\nThank you for telling us. Your complaint has the number "
-            f"{ticket.number}:\n\n{subject}\n\n{message}\n\nThe Mentora team will reply to this "
-            f"email address. If you want to add something, write to {inbox or 'us'} and mention "
-            f"{ticket.number}.",
+            f"We received your request {ticket.number}",
+            f"Hi {account.name},\n\nThank you for contacting Mentora support. We have received "
+            f"your request and given it the reference {ticket.number}.\n\n"
+            f"Subject: {subject}\n\n{message}\n\n"
+            "Our team usually replies within two working days, to this email address. To add "
+            f"anything, write to {inbox or 'us'} and mention {ticket.number}.\n\nMentora support",
         )
     except MailError:
         log.warning("support email for %s failed", ticket.number, exc_info=True)

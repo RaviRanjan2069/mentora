@@ -44,7 +44,7 @@ const STUDENT = [
   { path: "/profile", label: "Profile", icon: "user", title: "Profile", sub: "Your photo, details, password and account", page: profile },
   { path: "/settings", label: "Settings", icon: "settings", title: "Settings", sub: "Appearance, privacy and your data", page: settings },
   // Opened from the Customer support link at the bottom of the menu.
-  { path: "/support", label: "Customer support", icon: "headset", title: "Customer support", sub: "Report a problem or raise a complaint", page: support, hidden: true },
+  { path: "/support", label: "Help & support", icon: "headset", title: "Help & support", sub: "Report a problem or raise a complaint with the Mentora team", page: support, hidden: true },
 ];
 
 const TEACHER = [
@@ -59,7 +59,7 @@ const TEACHER = [
   { path: "/teacher/reports", label: "Reports", icon: "file", title: "Reports", sub: "Exports and policy evaluation reports", page: reports },
   { path: "/teacher/profile", label: "Profile", icon: "user", title: "Profile", sub: "Your photo, details, password and account", page: profile },
   { path: "/teacher/settings", label: "Settings", icon: "settings", title: "Settings", sub: "Tutor rules and system information", page: settings },
-  { path: "/teacher/support", label: "Customer support", icon: "headset", title: "Customer support", sub: "Report a problem or raise a complaint", page: support, hidden: true },
+  { path: "/teacher/support", label: "Help & support", icon: "headset", title: "Help & support", sub: "Report a problem or raise a complaint with the Mentora team", page: support, hidden: true },
 ];
 
 const NOTICE_KEY = "mentora-demo-notice-dismissed";
@@ -180,10 +180,7 @@ function shell(me, signOut) {
   const content = h("main", { class: "content" });
   const nav = h("nav", { class: "nav" });
   const supportPath = me.role === "teacher" ? "/teacher/support" : "/support";
-  const supportLink = h("a", { class: "support-cta", href: `#${supportPath}` },
-    h("span", { class: "support-ico" }, icon("headset")),
-    h("span", { class: "support-txt" }, h("b", null, "Customer support"), h("small", null, "Report a problem")),
-    icon("arrow"));
+  const supportLink = h("a", { class: "nav-item support-item", href: `#${supportPath}` }, icon("headset"), "Help & support");
   const title = h("div", { class: "topbar-title" });
   const bellSlot = h("div");
   const accountSlot = h("div");

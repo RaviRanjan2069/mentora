@@ -681,6 +681,7 @@ class SupportTicket(Document):
     subject: str
     message: str
     page: str = ""  # where in Mentora it happened (optional)
+    priority: str = "normal"  # normal | high (it stops the user from studying)
     status: str = "open"
     emailed: bool = False
     created_at: datetime = field(default_factory=now)
@@ -688,6 +689,7 @@ class SupportTicket(Document):
     def validate(self) -> None:
         one_of(self.category, SUPPORT_CATEGORIES, "category")
         one_of(self.status, ("open", "resolved"), "status")
+        one_of(self.priority, ("normal", "high"), "priority")
 
     @property
     def number(self) -> str:

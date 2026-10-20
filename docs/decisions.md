@@ -407,4 +407,9 @@ MEN-00001...), emailed to the support inbox (`MENTORA_SUPPORT_EMAIL`, default th
 with the user's email as reply-to so support answers by replying, and confirmed to the user by
 email. The page also shows the support address for writing directly, and the user's own
 complaints with their status. At most 5 complaints an hour per account.
+Revised the same day: the link is a plain "Help & support" menu item (headset icon) above
+Sign out, and the page is a help-desk layout: contact facts (email, typical reply time, open
+requests), a New request form (topic, priority Normal/High, where in Mentora, subject,
+description), a contact panel with tips, and a full-width table of the user's requests. High
+priority requests are tagged [HIGH] in the inbox email's subject.
 

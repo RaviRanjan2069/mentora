@@ -57,7 +57,7 @@ What SQL used to enforce is enforced by `mentora/db/store.py`:
 | `practice_rounds` | A student's round of 10 practice questions | `student_id`, `subject_id`, `plan` (question, topic, why chosen, shown option order), `results` (choice, correct, time), `focus`, `score`, `total`, `started_at`, `finished_at` |
 | `roadmaps` | A student's week-by-week plan for a goal (D44) | `student_id`, `goal`, `subject`, `subject_id`, `level`, `pace`, `source` (curated or ai), `weeks` (embedded tasks with done state and progress), `adaptations` (what changed and why), `status`, `start_date` |
 | `chat_threads` | A student's AI tutor conversation (D46) | `student_id`, `title`, `messages` (role, text, time), `created_at`, `updated_at` |
-| `support_tickets` | A complaint raised on Customer support (D49) | `account_id`, `category`, `subject`, `message`, `page`, `status` (open, resolved), `emailed`, `created_at`; shown as MEN-<id> |
+| `support_tickets` | A complaint raised on Customer support (D49) | `account_id`, `category`, `subject`, `message`, `page`, `priority` (normal, high), `status` (open, resolved), `emailed`, `created_at`; shown as MEN-<id> |
 | `email_tokens` | One-time email links | `_id` = sha256 of the token, `purpose` ∈ {verify, reset}, `expires_at`, `used` |
 | `counters`, `meta` | Integer id sequences; schema version | |
 

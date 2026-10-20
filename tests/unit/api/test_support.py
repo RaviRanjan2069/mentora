@@ -69,7 +69,10 @@ def test_complaint_is_emailed_and_listed(app: FastAPI, outbox: Outbox) -> None:
     assert [x["number"] for x in asha.get("/api/support").json()["tickets"]] == ["MEN-00001"]
     bob = signup(app, "dr.bob", "teacher")  # teachers can complain too, and see only theirs
     assert bob.get("/api/support").json()["tickets"] == []
-    assert bob.post("/api/support", json={**body, "category": "teacher"}).status_code == 201
+    urgent = {**body, "category": "teacher", "priority": "high"}
+    assert bob.post("/api/support", json=urgent).json()["priority"] == "high"
+    assert "[HIGH]" in outbox.sent[-2][1]  # the inbox copy is flagged
+    assert bob.post("/api/support", json={**body, "priority": "panic"}).status_code == 422
 
     bad = asha.post("/api/support", json={**body, "category": "nonsense"})
     assert bad.status_code == 422

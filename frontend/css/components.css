@@ -995,38 +995,38 @@ html { overflow-x: hidden; overflow-y: scroll; }
 .subj-table td:nth-child(6), .subj-table td:nth-child(7) { min-width: 140px; }
 @media (max-width: 1400px) { .subj-table th:nth-child(3), .subj-table td:nth-child(3) { display: none; } }
 
-/* --- customer support ------------------------------------------------------------------------- */
-.support { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(260px, 1fr); gap: 24px; align-items: start; }
-.support-main, .support-side { display: grid; gap: 18px; }
-.topic-pick { display: flex; flex-wrap: wrap; gap: 8px; }
-.topic-pick .pick { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; background: var(--surface-1); font-size: 14px; }
-.topic-pick .pick:hover { border-color: var(--text-muted); }
-.topic-pick .pick.on { border-color: var(--brand); background: var(--brand-soft); color: var(--text-primary); font-weight: 600; }
-.topic-pick input { accent-color: var(--brand); }
-.support-email { font-family: var(--serif); font-size: 19px; margin: 6px 0 14px; overflow-wrap: anywhere; }
-.support-email a { color: var(--text-primary); text-decoration-color: var(--line); }
-.support-steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; color: var(--text-secondary); font-size: 14px; }
-.support-table td.mono { font-family: ui-monospace, Consolas, monospace; font-size: 13px; white-space: nowrap; }
-.support-table td .ellipsis { max-width: 420px; }
-.support-done { align-items: center; }
-.sidebar-cta svg { color: var(--text-secondary); }
-@media (max-width: 1000px) { .support { grid-template-columns: minmax(0, 1fr); } }
+/* --- help & support (help-desk layout) ----------------------------------------------------- */
+.desk { display: grid; gap: 22px; }
+.desk-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 2px solid var(--text-primary); border-bottom: 1px solid var(--line); }
+.desk-facts > div { display: grid; gap: 3px; padding: 12px 18px 12px 0; }
+.desk-facts > div + div { padding-left: 18px; border-left: 1px solid var(--line); }
+.desk-facts span { font-size: 12px; color: var(--text-muted); }
+.desk-facts b, .desk-facts a { font-size: 15px; font-weight: 600; color: var(--text-primary); text-decoration: none; overflow-wrap: anywhere; }
+.desk-facts a:hover { color: var(--brand); }
+.desk-confirm { padding: 12px 16px; border-left: 3px solid var(--ok); background: var(--ok-soft); border-radius: 0 8px 8px 0; font-size: 14px; }
+.desk-body { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(260px, 1fr); gap: 22px; align-items: start; }
+.desk-main, .desk-side { display: grid; gap: 18px; }
+.desk-form-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.desk-form-head h2 { margin: 0; }
+.desk-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 14px; margin-top: 12px; }
+.desk-form .field { position: relative; }
+.desk-count { position: absolute; right: 2px; bottom: -18px; }
+.desk-form-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--line); }
+.desk-table td.mono { font-family: ui-monospace, Consolas, monospace; font-size: 13px; white-space: nowrap; }
+.desk-table td.nowrap { white-space: nowrap; }
+.desk-subject { font-weight: 600; }
+.desk-table td .ellipsis { max-width: 720px; }
+.desk-table td:nth-child(3) { white-space: nowrap; }
+.desk-mail { font-family: var(--serif); font-size: 18px; margin: 0 0 12px; overflow-wrap: anywhere; }
+.desk-tips { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: 14px; color: var(--text-secondary); }
+@media (max-width: 1100px) { .desk-body { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 700px) {
+  .desk-facts, .desk-grid { grid-template-columns: minmax(0, 1fr); }
+  .desk-facts > div + div { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); }
+}
 
-/* the Customer support link at the foot of the menu */
-.support-cta {
-  display: flex; align-items: center; gap: 11px; padding: 10px 10px 10px 10px; margin-bottom: 8px; border-radius: 10px;
-  border: 1px solid var(--line); background: var(--surface-2); color: var(--text-primary); text-decoration: none;
-  transition: border-color .15s, background .15s;
-}
-.support-cta:hover { border-color: var(--text-muted); background: var(--surface-1); }
-.support-cta.active { border-color: var(--brand); background: var(--brand-soft); }
-.support-ico {
-  display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 999px;
-  background: var(--surface-1); border: 1px solid var(--line); color: var(--brand);
-}
-.support-ico svg { width: 18px; height: 18px; }
-.support-txt { flex: 1; min-width: 0; display: grid; line-height: 1.25; }
-.support-txt b { font-size: 13.5px; font-weight: 650; white-space: nowrap; }
-.support-txt small { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
-.support-cta > svg { width: 15px; height: 15px; color: var(--text-muted); flex: none; transition: transform .15s; }
-.support-cta:hover > svg { transform: translateX(2px); color: var(--text-primary); }
+/* Help & support sits with Sign out at the foot of the menu, styled like any menu item */
+.support-item { margin-bottom: 2px; border-top: 1px solid var(--line); border-radius: 0; padding-top: 12px; margin-top: 6px; }
+.support-item.active::before { top: 15px; }
+.support-item.active { background: transparent; color: var(--text-primary); font-weight: 650; }
+.support-item.active svg { color: var(--brand); }
