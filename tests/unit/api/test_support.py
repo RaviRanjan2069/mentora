@@ -81,3 +81,36 @@ def test_complaint_is_emailed_and_listed(app: FastAPI, outbox: Outbox) -> None:
         asha.post("/api/support", json=body)
     assert asha.post("/api/support", json=body).status_code == 429  # 5 an hour
     assert TestClient(app).get("/api/support").status_code == 401
+
+
+def test_resolve_from_the_inbox_link_and_reopen(app: FastAPI, outbox: Outbox) -> None:
+    import re
+
+    asha = signup(app, "asha")
+    body = {"category": "bug", "subject": "Progress page is blank", "message": "It shows nothing."}
+    t = asha.post("/api/support", json=body).json()
+    inbox_mail = next(msg for msg in outbox.sent if msg[0] == "help@mentora.example")
+    found = re.search(r"/api/support/resolve/(\d+)\?token=([\w-]+)", inbox_mail[2])
+    assert found, inbox_mail[2]
+    path, token = f"/api/support/resolve/{found.group(1)}", found.group(2)
+
+    staff = TestClient(app)  # support opens the link from the email: no sign-in
+    form = staff.get(path, params={"token": token})
+    assert form.status_code == 200 and "Progress page is blank" in form.text
+    assert staff.get(path, params={"token": "wrong"}).status_code == 404
+    done = staff.post(path, data={"token": token, "note": "Fixed the chart loading."})
+    assert done.status_code == 200 and "is resolved" in done.text
+    told = outbox.sent[-1]
+    assert told[0] == "asha@example.com" and t["number"] in told[1] and "chart loading" in told[2]
+    assert staff.post(path, data={"token": token, "note": "again"}).status_code == 404  # once
+
+    mine = asha.get("/api/support").json()["tickets"][0]
+    assert mine["status"] == "resolved" and mine["resolution"] == "Fixed the chart loading."
+    assert asha.post(f"/api/support/{t['number']}/reopen").json()["status"] == "open"
+    reopened = outbox.sent[-1]
+    assert reopened[0] == "help@mentora.example" and "reopened" in reopened[1]
+    new = re.search(r"token=([\w-]+)", reopened[2])
+    assert new and new.group(1) != token
+    assert staff.get(path, params={"token": new.group(1)}).status_code == 200
+    bob = signup(app, "bob")
+    assert bob.post(f"/api/support/{t['number']}/reopen").status_code == 404

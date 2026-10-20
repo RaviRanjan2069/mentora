@@ -685,6 +685,11 @@ class SupportTicket(Document):
     status: str = "open"
     emailed: bool = False
     created_at: datetime = field(default_factory=now)
+    # Support resolves a request from the link in its email; only the token's hash is stored.
+    resolve_token: str | None = None
+    resolution: str = ""  # what was fixed, sent to the user
+    resolved_at: datetime | None = None
+    reopened: int = 0
 
     def validate(self) -> None:
         one_of(self.category, SUPPORT_CATEGORIES, "category")

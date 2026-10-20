@@ -26,6 +26,18 @@ export default function support(root) {
     }
   }
 
+  async function reopen(t) {
+    if (!window.confirm(`Reopen ${t.number}? The Mentora team will be told it is not fixed yet.`)) return;
+    try {
+      await api.post(`/api/support/${t.number}/reopen`);
+      st.data = await api.get("/api/support");
+      toast(`${t.number} reopened. The team has been emailed.`);
+      paint();
+    } catch (e) {
+      toast(errorText(e), "error");
+    }
+  }
+
   async function submit(e) {
     e.preventDefault();
     st.error = null;
@@ -98,11 +110,17 @@ export default function support(root) {
             h("thead", null, h("tr", null, ["Reference", "Subject", "Topic", "Priority", "Submitted", "Status"].map((x) => h("th", null, x)))),
             h("tbody", null, d.tickets.map((t) => h("tr", null,
               h("td", { class: "mono" }, t.number),
-              h("td", null, h("div", { class: "desk-subject" }, t.subject), h("div", { class: "muted small ellipsis" }, t.message)),
+              h("td", null, h("div", { class: "desk-subject" }, t.subject), h("div", { class: "muted small ellipsis" }, t.message),
+                t.status === "resolved" && t.resolution
+                  ? h("div", { class: "desk-resolution" }, h("b", null, `Resolved ${when(t.resolved_at)}: `), t.resolution)
+                  : t.reopened ? h("div", { class: "muted small" }, "Reopened – the team has been told.") : null),
               h("td", null, t.category_label),
               h("td", null, t.priority === "high" ? h("span", { class: "badge danger" }, "High") : h("span", { class: "muted" }, "Normal")),
               h("td", { class: "muted nowrap" }, when(t.created_at)),
-              h("td", null, h("span", { class: `badge ${t.status === "open" ? "warn" : "ok"}` }, t.status === "open" ? "Open" : "Resolved"))))))));
+              h("td", { class: "desk-status" }, h("span", { class: `badge ${t.status === "open" ? "warn" : "ok"}` }, t.status === "open" ? "Open" : "Resolved"),
+                t.status === "resolved"
+                  ? h("button", { class: "text-btn small", title: "Not fixed? Tell the team", onClick: () => reopen(t) }, "Reopen")
+                  : null)))))));
   }
 
   function paint() {

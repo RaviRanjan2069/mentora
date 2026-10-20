@@ -412,4 +412,10 @@ Sign out, and the page is a help-desk layout: contact facts (email, typical repl
 requests), a New request form (topic, priority Normal/High, where in Mentora, subject,
 description), a contact panel with tips, and a full-width table of the user's requests. High
 priority requests are tagged [HIGH] in the inbox email's subject.
+Closing the loop: the inbox email carries a private "Mark as resolved" link (a random token;
+only its SHA-256 is stored, it works once, and links are rate-limited per IP). It opens a small
+page with the request where support writes what was fixed; the request becomes Resolved, the
+note and date show on the user's Help & support page, and the user is emailed the note. A user
+whose problem is not fixed presses Reopen: the request opens again and support gets a new email
+with a fresh link (the old one stops working).
 
