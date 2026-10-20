@@ -429,3 +429,15 @@ service status from `/health`, a footer with Privacy, Terms and Help (short, acc
 Help shows the support address) and a light/dark/auto theme switch, and on wide screens a small
 illustration of the home page so new visitors see what they sign up for.
 
+## D51 — Whiteboard sign-in page
+
+The sign-in and create-account pages take a friendlier, hand-drawn look in place of D50's home-page
+illustration and feature list: a whiteboard where the Mentora tutor writes short worked examples
+from Mentora's subjects (maths, Python, a stack, SQL) in a handwriting font, then underlines,
+circles and ticks the answer, with a tip from the tutor below. It is plain HTML, CSS and
+JavaScript (`frontend/js/whiteboard.js`), loops through the lessons, lets visitors jump between
+them, shows complete lessons without the writing animation when the system asks for reduced
+motion, and stops by itself once the page changes. The two fonts (Caveat for handwriting, Nunito
+for text; both SIL Open Font License) are served from `frontend/fonts`, so the page makes no
+requests to other sites. Everything else from D50 (keep me signed in, Caps Lock warning, status,
+footer, theme switch) is unchanged.

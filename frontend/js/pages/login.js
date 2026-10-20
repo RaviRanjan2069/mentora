@@ -1,15 +1,10 @@
 // Sign in, create an account, forgotten password, reset (from the email link), verify email.
 import { api, ApiError, errorText } from "../api.js";
 import { h, hashParam, icon, logo, render, s } from "../dom.js";
+import { whiteboard } from "../whiteboard.js";
 import { saveTheme, storedTheme } from "../theme.js";
 import { GENDERS } from "../people.js";
 import { openModal, toast } from "../ui.js";
-
-const FEATURES = [
-  ["target", "Practice that adapts", "Rounds of 10 questions that come back to the topics you miss."],
-  ["layers", "A plan for every goal", "Week-by-week roadmaps from the basics to a final project."],
-  ["bot", "Help when you are stuck", "Ask the AI tutor, or your teacher, about anything you study."],
-];
 
 /** 0-4: length and variety of characters. */
 function strength(pw) {
@@ -340,30 +335,12 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
   }
 
   const TITLES = {
-    signin: ["Welcome back", "Sign in to continue learning."],
+    signin: ["Sign in to Mentora", "Pick up where you left off."],
     signup: ["Create your account", "One account for the tutor, practice and your progress."],
     forgot: ["Forgot your password?", ""],
     reset: ["Choose a new password", ""],
     verify: ["Confirm your email", ""],
   };
-
-  function preview() {
-    return h("aside", { class: "auth-preview", "aria-hidden": "true" },
-      h("div", { class: "pv-head" }, h("span", { class: "pv-date" }, "This week"), h("span", { class: "pv-dots" }, h("i"), h("i"), h("i"))),
-      h("div", { class: "pv-figs" },
-        h("div", null, h("small", null, "Accuracy"), h("b", null, "77%"), h("em", null, "+20 pts")),
-        h("div", null, h("small", null, "Questions"), h("b", null, "90"), h("em", null, "+10")),
-        h("div", null, h("small", null, "Streak"), h("b", null, "5"), h("em", { class: "flat" }, "days"))),
-      s("svg", { class: "pv-graph", viewBox: "0 0 300 90", preserveAspectRatio: "none" },
-        [22, 45, 68].map((y) => s("line", { x1: 0, x2: 300, y1: y, y2: y, class: "pv-grid" })),
-        s("path", { class: "pv-area", d: "M0,70 L38,62 L75,66 L112,48 L150,52 L188,36 L225,30 L262,22 L300,18 L300,90 L0,90 Z" }),
-        s("path", { class: "pv-line", d: "M0,70 L38,62 L75,66 L112,48 L150,52 L188,36 L225,30 L262,22 L300,18" })),
-      h("ol", { class: "pv-next" },
-        h("li", null, h("b", null, "Finish your Python round"), h("span", null, "4 of 10 answered")),
-        h("li", null, h("b", null, "Week 3 of your Java plan"), h("span", null, "Arrays and strings")),
-        h("li", null, h("b", null, "Practise Exceptions"), h("span", null, "40% right so far"))),
-      h("p", { class: "pv-caption" }, "Your home page after you sign in: real numbers from your practice."));
-  }
 
   function statusDot() {
     const up = st.status;
@@ -398,6 +375,9 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
     `Anything else: write to ${st.options.support_email || "the Mentora team"}. Signed-in users can also use Help & support in the menu.`,
   ]);
 
+  const KICKERS = { signin: "Good to see you again!", signup: "Let's get you started" };
+  let board = null;
+
   function paint() {
     const [title, sub] = TITLES[st.mode];
     const body = { signin: signinForm, signup: signupForm, forgot: forgotForm, reset: resetForm, verify: verifyView }[st.mode]();
@@ -405,20 +385,23 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
       h("header", { class: "auth-brand" },
         h("span", { class: "auth-logo" }, logo()),
         h("span", { class: "auth-name" }, "Mentora")),
-      h("p", { class: "auth-tagline" }, "Practise, plan and track your learning, with your teachers."),
+      h("p", { class: "auth-tagline" }, "Learn anything, ",
+        h("span", { class: "auth-hand" }, "one step at a time",
+          s("svg", { viewBox: "0 0 100 12", preserveAspectRatio: "none", "aria-hidden": "true" },
+            s("path", { d: "M2 8 C 30 3, 60 11, 98 5" })))),
       h("div", { class: "auth-body" },
+        board ??= whiteboard(),
         h("main", { class: "card auth-card" },
           st.mode === "signin" || st.mode === "signup"
             ? h("div", { class: "auth-switch", role: "tablist" },
                 [["signin", "Sign in"], ["signup", "Create account"]].map(([m, l]) => h(
                   "button", { type: "button", role: "tab", "aria-selected": String(st.mode === m), class: st.mode === m ? "active" : "", onClick: () => go(m) }, l)))
             : null,
+          KICKERS[st.mode] ? h("p", { class: "auth-kicker" }, KICKERS[st.mode]) : null,
           h("h1", { class: "auth-title" }, title),
           sub ? h("p", { class: "muted", style: { marginTop: 0 } }, sub) : null,
           body,
-          st.mode === "signin" ? devForm() : null),
-        preview()),
-      h("ul", { class: "auth-points" }, FEATURES.map(([, head, text]) => h("li", null, h("b", null, head), h("span", null, text)))),
+          st.mode === "signin" ? devForm() : null)),
       h("footer", { class: "auth-footer" },
         h("div", { class: "auth-footer-left" },
           h("span", null, `© ${new Date().getFullYear()} Mentora`),
