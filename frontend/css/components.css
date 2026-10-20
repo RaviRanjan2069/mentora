@@ -1040,3 +1040,27 @@ html { overflow-x: hidden; overflow-y: scroll; }
 .sidebar .brand { gap: 12px; padding: 6px 8px 22px; }
 .sidebar .brand svg { width: 46px; height: 46px; }
 .sidebar .brand b { font-size: 30px; line-height: 1; letter-spacing: -0.01em; }
+
+/* --- sign in / create account: centred, editorial ----------------------------------------------- */
+.auth-page { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 56px 20px 40px; background: var(--bg); }
+.auth-brand { display: flex; align-items: center; justify-content: center; gap: 16px; }
+.auth-logo svg { width: 64px; height: 64px; display: block; }
+.auth-name { font-family: var(--serif); font-weight: 600; font-size: 52px; line-height: 1; letter-spacing: -0.01em; color: var(--text-primary); }
+.auth-tagline { margin: 14px 0 30px; color: var(--text-secondary); font-size: 16px; text-align: center; }
+.auth-page .auth-card { width: min(460px, 100%); padding: 28px 30px 26px; border-top: 2px solid var(--text-primary); border-radius: 0 0 var(--radius) var(--radius); }
+.auth-title { font-family: var(--serif); font-weight: 600; font-size: 26px; letter-spacing: -0.005em; margin: 4px 0 4px; }
+.auth-points { list-style: none; padding: 0; margin: 40px 0 0; width: min(920px, 100%); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); }
+.auth-points li { display: grid; gap: 4px; padding: 16px 20px 0 0; }
+.auth-points li + li { padding-left: 20px; border-left: 1px solid var(--line); }
+.auth-points b { font-size: 14.5px; }
+.auth-points span { font-size: 13.5px; color: var(--text-muted); line-height: 1.5; }
+.auth-foot-note { margin-top: 28px; font-size: 13px; color: var(--text-muted); text-align: center; }
+@media (max-width: 700px) {
+  .auth-page { padding: 32px 16px 28px; }
+  .auth-logo svg { width: 48px; height: 48px; }
+  .auth-name { font-size: 40px; }
+  .auth-tagline { margin-bottom: 22px; font-size: 15px; }
+  .auth-page .auth-card { padding: 22px 18px; }
+  .auth-points { grid-template-columns: minmax(0, 1fr); margin-top: 28px; }
+  .auth-points li + li { padding-left: 0; border-left: 0; }
+}

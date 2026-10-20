@@ -5,10 +5,9 @@ import { GENDERS } from "../people.js";
 import { toast } from "../ui.js";
 
 const FEATURES = [
-  ["target", "Goals and plans", "Set a goal, plan the steps, then practise with feedback."],
-  ["bot", "An AI tutor", "Explains why it suggests each next step."],
-  ["book", "Grounded answers", "Built on your course notes, with sources."],
-  ["shield", "Private by design", "Learning data under a pseudonym; delete your account any time."],
+  ["target", "Practice that adapts", "Rounds of 10 questions that come back to the topics you miss."],
+  ["layers", "A plan for every goal", "Week-by-week roadmaps from the basics to a final project."],
+  ["bot", "Help when you are stuck", "Ask the AI tutor, or your teacher, about anything you study."],
 ];
 
 /** 0-4: length and variety of characters. */
@@ -342,31 +341,23 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
   function paint() {
     const [title, sub] = TITLES[st.mode];
     const body = { signin: signinForm, signup: signupForm, forgot: forgotForm, reset: resetForm, verify: verifyView }[st.mode]();
-    render(root, h(
-      "div", { class: "login-wrap" },
-      h("section", { class: "login-art" },
-        h("div", { class: "hero-brand" }, h("span", { class: "hero-logo" }, logo()),
-          h("div", null, h("b", null, "Mentora"), h("small", null, "Self-learning strategy tutor"))),
-        h("div", { class: "hero-main" },
-          h("span", { class: "hero-pill" }, icon("users"), "For students and teachers"),
-          h("h2", null, "Learn how you learn: ", h("span", { class: "hero-accent" }, "plan, practise, reflect.")),
-          h("p", { class: "hero-lead" }, "Mentora helps you set goals, work through course material with an AI tutor, and look back on what worked."),
-          h("ul", { class: "hero-features" }, FEATURES.map(([name, head, text]) => h("li", null,
-            h("span", { class: "hero-ico" }, icon(name)),
-            h("div", null, h("b", null, head), h("span", null, text)))))),
-        h("p", { class: "foot" }, "Students join their teacher with a 10-digit class code.")),
-      h("section", { class: "login-form" },
-        h("div", { class: "card auth-card" },
-          st.mode === "signin" || st.mode === "signup"
-            ? h("div", { class: "auth-switch", role: "tablist" },
-                [["signin", "Sign in"], ["signup", "Create account"]].map(([m, l]) => h(
-                  "button", { type: "button", role: "tab", "aria-selected": String(st.mode === m), class: st.mode === m ? "active" : "", onClick: () => go(m) }, l)))
-            : null,
-          h("h2", null, title),
-          sub ? h("p", { class: "muted", style: { marginTop: 0 } }, sub) : null,
-          body,
-          st.mode === "signin" ? devForm() : null)),
-    ));
+    render(root, h("div", { class: "auth-page" },
+      h("header", { class: "auth-brand" },
+        h("span", { class: "auth-logo" }, logo()),
+        h("span", { class: "auth-name" }, "Mentora")),
+      h("p", { class: "auth-tagline" }, "Practise, plan and track your learning, with your teachers."),
+      h("main", { class: "card auth-card" },
+        st.mode === "signin" || st.mode === "signup"
+          ? h("div", { class: "auth-switch", role: "tablist" },
+              [["signin", "Sign in"], ["signup", "Create account"]].map(([m, l]) => h(
+                "button", { type: "button", role: "tab", "aria-selected": String(st.mode === m), class: st.mode === m ? "active" : "", onClick: () => go(m) }, l)))
+          : null,
+        h("h1", { class: "auth-title" }, title),
+        sub ? h("p", { class: "muted", style: { marginTop: 0 } }, sub) : null,
+        body,
+        st.mode === "signin" ? devForm() : null),
+      h("ul", { class: "auth-points" }, FEATURES.map(([, head, text]) => h("li", null, h("b", null, head), h("span", null, text)))),
+      h("footer", { class: "auth-foot-note" }, "Students join their teacher with a 10-digit class code.")));
     if (st.mode === "signup") setHint();
   }
 
