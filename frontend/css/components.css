@@ -1042,7 +1042,11 @@ html { overflow-x: hidden; overflow-y: scroll; }
 .sidebar .brand b { font-size: 30px; line-height: 1; letter-spacing: -0.01em; }
 
 /* --- sign in / create account: simple, centred (D51) -------------------------------------------- */
-.auth-page { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 64px 20px 32px; background: var(--bg); }
+.auth-page {
+  min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 64px 20px 32px;
+  background-color: var(--bg); background-size: 22px 22px;
+  background-image: radial-gradient(color-mix(in srgb, var(--text-muted) 32%, transparent) 1.2px, transparent 1.3px);
+}
 .auth-brand { display: flex; align-items: center; justify-content: center; gap: 14px; }
 .auth-logo svg { width: 56px; height: 56px; display: block; }
 .auth-name { font-weight: 700; font-size: 44px; line-height: 1; letter-spacing: -0.025em; color: var(--text-primary); }
@@ -1065,7 +1069,7 @@ html { overflow-x: hidden; overflow-y: scroll; }
 .auth-page .btn { border-radius: 8px; font-weight: 600; }
 .auth-page .btn.primary { padding: 11px 16px; font-size: 15px; }
 @media (max-width: 700px) {
-  .auth-page { padding: 36px 16px 26px; }
+  .auth-page { padding: 36px 16px 26px; background-size: 18px 18px; }
   .auth-logo svg { width: 44px; height: 44px; }
   .auth-name { font-size: 36px; }
   .auth-tagline { margin-bottom: 24px; }
