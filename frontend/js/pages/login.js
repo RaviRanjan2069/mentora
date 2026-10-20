@@ -375,16 +375,23 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
     `Anything else: write to ${st.options.support_email || "the Mentora team"}. Signed-in users can also use Help & support in the menu.`,
   ]);
 
-  let tour = null;
-  const tourEl = () => {
-    if (!tour || tour.stopped) tour = showcase();
-    return tour;
+  // Behind the form on wide screens: two app windows acting out Mentora's services.
+  const windows = [null, null];
+  const SIDES = [[0, 1], [3, 4, 2]]; // left: tutor, practice; right: progress, teachers, goals
+  const backdrop = () => {
+    if (!window.matchMedia("(min-width: 1180px)").matches) return null;
+    return h("div", { class: "auth-bg", "aria-hidden": "true" }, SIDES.map((scenes, i) => {
+      if (!windows[i] || windows[i].stopped) windows[i] = showcase(scenes);
+      return h("div", { class: `auth-bg-win ${i ? "right" : "left"}` }, windows[i]);
+    }));
   };
 
   function paint() {
     const [title, sub] = TITLES[st.mode];
     const body = { signin: signinForm, signup: signupForm, forgot: forgotForm, reset: resetForm, verify: verifyView }[st.mode]();
-    render(root, h("div", { class: "auth-page" },
+    const wide = st.mode === "signin" || st.mode === "signup";
+    render(root, h("div", { class: `auth-page ${wide ? "with-bg" : ""}` },
+      wide ? backdrop() : null,
       h("header", { class: "auth-brand" },
         h("span", { class: "auth-logo" }, logo()),
         h("span", { class: "auth-name" }, "Mentora")),
@@ -399,10 +406,7 @@ export default function login(root, { onSignedIn, mode: initialMode = "signin" }
           h("h1", { class: "auth-title" }, title),
           sub ? h("p", { class: "muted", style: { marginTop: 0 } }, sub) : null,
           body,
-          st.mode === "signin" ? devForm() : null),
-        st.mode === "signin" || st.mode === "signup"
-          ? h("div", { class: "auth-show" }, h("p", { class: "about-eyebrow" }, "See Mentora in action"), tourEl())
-          : null),
+          st.mode === "signin" ? devForm() : null)),
       h("footer", { class: "auth-footer" },
         h("div", { class: "auth-footer-left" },
           h("span", null, `© ${new Date().getFullYear()} Mentora`),

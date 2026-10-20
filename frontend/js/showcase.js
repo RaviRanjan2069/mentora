@@ -1,6 +1,6 @@
-// The sign-in showcase: a short, video-like tour of Mentora's services with example data.
-// Plain DOM and CSS. One clock drives everything, so pause really pauses, and the tour stops by
-// itself once it leaves the page.
+// The sign-in background: app windows that act out Mentora's services with example data.
+// Plain DOM and CSS. One clock per window drives its scenes, and it stops by itself once it
+// leaves the page.
 import { h, icon, logo, s } from "./dom.js";
 
 const SCENE_MS = 11000;
@@ -198,41 +198,34 @@ function teacherScene(t) {
 }
 
 const SCENES = [
-  { label: "AI tutor", title: "AI tutor", build: tutorScene,
-    caption: "Ask anything in your own words. The tutor explains step by step, with examples." },
-  { label: "Adaptive MCQ", title: "My Learning · adaptive practice", build: practiceScene,
-    caption: "Miss a question and the next one is easier, and it comes back later. Get it right and they get harder." },
-  { label: "Goals & plans", title: "Goals & plans", build: goalsScene,
-    caption: "Pick a goal and get a week-by-week plan that adjusts to your results." },
-  { label: "Progress", title: "Progress", build: progressScene,
-    caption: "Line graphs of your results in every subject, and what needs more work." },
-  { label: "Teachers", title: "Teacher · class analysis", build: teacherScene,
-    caption: "Teachers share material and quizzes, and see which questions the class finds hard." },
+  { title: "AI tutor", build: tutorScene },
+  { title: "My Learning · adaptive practice", build: practiceScene },
+  { title: "Goals & plans", build: goalsScene },
+  { title: "Progress", build: progressScene },
+  { title: "Teacher · class analysis", build: teacherScene },
 ];
 
-// --- the player -----------------------------------------------------------------------------------
+// --- the background player --------------------------------------------------------------------------
 
-/** A self-running tour element. Check `.stopped` before reusing it after it left the page. */
-export function showcase() {
+/**
+ * A self-running app window that loops through some scenes, for the sign-in page background.
+ * Decorative (aria-hidden). Check `.stopped` before reusing it after it left the page.
+ */
+export function showcase(sceneIndexes = SCENES.map((_, i) => i)) {
   const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  let playing = !reduced;
-  let index = 0;
+  let pos = 0;
   let elapsed = 0;
   let waiters = [];
   let gone = 0;
 
   const stage = h("div", { class: "sc-stage" });
   const title = h("span", { class: "sc-title" });
-  const caption = h("p", { class: "sc-caption", "aria-live": "polite" });
-  const chapters = h("div", { class: "sc-chapters", role: "tablist", "aria-label": "Tour chapters" });
-  const playBtn = h("button", { type: "button", class: "sc-play" });
-  const root = h("section", { class: "sc", "aria-label": "A short animated tour of Mentora" },
+  const root = h("div", { class: "sc", "aria-hidden": "true" },
     h("div", { class: "sc-top" },
-      h("span", { class: "sc-lights", "aria-hidden": "true" }, h("i"), h("i"), h("i")),
+      h("span", { class: "sc-lights" }, h("i"), h("i"), h("i")),
       title,
       h("span", { class: "sc-badge" }, "Example")),
-    stage,
-    h("div", { class: "sc-bottom" }, caption, h("div", { class: "sc-controls" }, playBtn, chapters)));
+    stage);
 
   const sleep = (ms) => (reduced || ms <= 0 ? Promise.resolve() : new Promise((resolve) => waiters.push({ at: elapsed + ms, resolve })));
   let cursor = null;
@@ -261,9 +254,13 @@ export function showcase() {
     },
     async click(target) {
       if (!reduced && cursor && target.isConnected) {
+        // the window may be scaled with CSS: measure in its own (unscaled) pixels
+        const k = stage.getBoundingClientRect().width / stage.offsetWidth || 1;
         const r = target.getBoundingClientRect();
         const sr = stage.getBoundingClientRect();
-        cursor.style.transform = `translate(${r.left - sr.left + Math.min(r.width * 0.5, 60)}px, ${r.top - sr.top + r.height * 0.55}px)`;
+        const x = (r.left - sr.left) / k + Math.min(r.width / k / 2, 60);
+        const y = (r.top - sr.top) / k + (r.height / k) * 0.55;
+        cursor.style.transform = `translate(${x}px, ${y}px)`;
         cursor.classList.add("shown");
         await sleep(750);
         cursor.classList.add("press");
@@ -276,64 +273,35 @@ export function showcase() {
     },
   };
 
-  function paintChapters() {
-    chapters.replaceChildren(...SCENES.map((sc, i) => h("button", {
-      type: "button", role: "tab", "aria-selected": String(i === index),
-      class: `sc-chapter ${i < index ? "past" : i === index ? "now" : ""}`, onClick: () => go(i),
-    }, h("span", null, sc.label), h("span", { class: "sc-chapter-bar" }, h("i")))));
-  }
-
-  function setBar() {
-    const bar = chapters.querySelector(".sc-chapter.now .sc-chapter-bar i");
-    if (bar) bar.style.width = `${reduced ? 100 : Math.min(100, (elapsed / SCENE_MS) * 100)}%`;
-  }
-
-  function go(i) {
-    index = i;
+  function go(p) {
+    pos = p;
     elapsed = 0;
     waiters = [];
-    const sc = SCENES[i];
+    const sc = SCENES[sceneIndexes[pos]];
     const { el, run } = sc.build(t);
-    cursor = h("span", { class: "sc-cursor", "aria-hidden": "true" },
+    cursor = h("span", { class: "sc-cursor" },
       s("svg", { viewBox: "0 0 24 24" }, s("path", { d: "M5 3 L19 12 L12 13.5 L8.5 20 Z" })));
     stage.replaceChildren(el, cursor);
     title.textContent = sc.title;
-    caption.textContent = sc.caption;
-    paintChapters();
-    setBar();
     run().catch(() => undefined);
   }
 
-  function paintPlay() {
-    playBtn.replaceChildren(icon(playing ? "pause" : "play"));
-    playBtn.setAttribute("aria-label", playing ? "Pause the tour" : "Play the tour");
-    root.classList.toggle("paused", !playing);
-  }
-
-  playBtn.addEventListener("click", () => {
-    playing = !playing;
-    if (playing && reduced) go((index + 1) % SCENES.length);
-    paintPlay();
-  });
-
   const timer = window.setInterval(() => {
-    // render() moves the tour between paints; it has only really left if it stays out
+    // render() moves the window between paints; it has only really left if it stays out
     gone = root.isConnected ? 0 : gone + 1;
     if (gone > 3) {
       window.clearInterval(timer);
       root.stopped = true;
       return;
     }
-    if (!playing || reduced) return;
+    if (reduced) return;
     elapsed += TICK_MS;
     const due = waiters.filter((w) => w.at <= elapsed);
     waiters = waiters.filter((w) => w.at > elapsed);
     due.forEach((w) => w.resolve());
-    setBar();
-    if (elapsed >= SCENE_MS) go((index + 1) % SCENES.length);
+    if (elapsed >= SCENE_MS) go((pos + 1) % sceneIndexes.length);
   }, TICK_MS);
 
-  paintPlay();
   go(0);
   return root;
 }

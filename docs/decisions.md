@@ -429,15 +429,15 @@ service status from `/health`, a footer with Privacy, Terms and Help (short, acc
 Help shows the support address) and a light/dark/auto theme switch, and on wide screens a small
 illustration of the home page so new visitors see what they sign up for.
 
-## D51 — Sign-in page: simple form and an animated tour
+## D51 — Sign-in page: large centred form over an animated background
 
-A whiteboard animation with handwriting fonts and then a text "What is Mentora?" panel were tried
-on the sign-in page; at the user's request the page now shows, beside a larger sign in / create
-account card on a dotted background, a short video-like tour (`frontend/js/showcase.js`, plain DOM
-and CSS): five scenes that play in turn, each with a caption, chapters to jump between and a
-play/pause button: the AI tutor answering a question, an adaptive MCQ round getting easier after
-a miss and harder after a right answer, a goal turned into a weekly plan that adapts, progress line
-graphs, and a teacher's quiz analysis. Everything shown is example data and is labelled
-"Example"; no real learners appear. One pause-aware clock drives the tour; it honours reduced
-motion (no autoplay, finished frames) and stops once the page changes. Everything else from D50
-(keep me signed in, Caps Lock warning, status, Privacy/Terms/Help, theme switch) stays.
+A whiteboard animation with handwriting fonts, a text "What is Mentora?" panel and a tour player
+beside the form were tried; at the user's request the sign-in and create-account page is now a
+large card centred under the brand on a dotted background, and on wide screens (1180 px and up)
+two faded, slightly tilted app windows play behind it (`frontend/js/showcase.js`, plain DOM and
+CSS). The left one loops the AI tutor answering a question and an adaptive MCQ round (easier after
+a miss, harder after a right answer); the right one loops progress line graphs, a teacher's quiz
+analysis and a goal turned into a weekly plan. They are decorative (aria-hidden, no pointer
+events), show example data labelled "Example" with no real learners, honour reduced motion and
+stop once the page changes. Everything else from D50 (keep me signed in, Caps Lock warning,
+status, Privacy/Terms/Help, theme switch) stays.

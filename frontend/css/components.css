@@ -1061,15 +1061,9 @@ html { overflow-x: hidden; overflow-y: scroll; }
 .auth-logo svg { width: 68px; height: 68px; display: block; }
 .auth-name { font-weight: 700; font-size: 56px; line-height: 1; letter-spacing: -0.03em; color: var(--text-primary); }
 .auth-tagline { margin: 14px 0 40px; color: var(--text-muted); font-size: 17px; text-align: center; }
-.auth-body { display: grid; grid-template-columns: minmax(0, 500px); gap: 40px; justify-content: center; width: 100%; }
-.auth-body > .auth-show { order: 2; }
-@media (min-width: 1120px) {
-  .auth-body { grid-template-columns: 500px minmax(0, 640px); gap: 56px; align-items: start; }
-  .auth-body > .auth-show { order: 0; position: sticky; top: 24px; }
-  .auth-page .auth-card { position: sticky; top: 24px; }
-}
+.auth-body { display: grid; grid-template-columns: minmax(0, 540px); justify-content: center; width: 100%; }
 .auth-page .auth-card {
-  width: 100%; padding: 36px 40px 34px; border: 1px solid var(--line); border-radius: 14px;
+  width: 100%; padding: 42px 46px 38px; border: 1px solid var(--line); border-radius: 14px;
   background: var(--surface-1); box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 16px 40px -16px rgba(16, 24, 40, .16);
 }
 .auth-title { font-weight: 700; font-size: 30px; letter-spacing: -0.02em; margin: 6px 0 4px; }
@@ -1088,9 +1082,22 @@ html { overflow-x: hidden; overflow-y: scroll; }
 .auth-page .btn.primary { padding: 14px 18px; font-size: 16px; }
 .auth-page .check-line.keep, .auth-page .auth-row .link-btn { font-size: 14.5px; }
 
-.auth-show { display: grid; gap: 12px; align-content: start; min-width: 0; }
-.auth-show .about-eyebrow { margin: 0; }
-.about-eyebrow { font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--brand); }
+/* the background: two app windows playing behind the form, faded, on wide screens only */
+.auth-page { position: relative; overflow: hidden; }
+.auth-page > :not(.auth-bg) { position: relative; z-index: 1; }
+.auth-bg { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.auth-bg-win { position: absolute; top: 210px; width: 560px; opacity: .55; filter: saturate(.85);
+  -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent);
+  mask-image: linear-gradient(to bottom, #000 70%, transparent); }
+.auth-bg-win.left { right: calc(50% + 300px); transform: scale(.86) rotate(-2deg); transform-origin: right top; }
+.auth-bg-win.right { left: calc(50% + 300px); transform: scale(.86) rotate(2deg); transform-origin: left top; }
+@media (min-width: 1700px) {
+  .auth-bg-win { opacity: .65; }
+  .auth-bg-win.left { transform: scale(1) rotate(-2deg); }
+  .auth-bg-win.right { transform: scale(1) rotate(2deg); }
+}
+@media (max-width: 1179px) { .auth-bg { display: none; } }
+.auth-page.with-bg .auth-card { box-shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 24px 60px -18px rgba(16, 24, 40, .28); }
 
 /* the tour player */
 .sc { border: 1px solid var(--line); border-radius: 14px; background: var(--surface-1); overflow: hidden;
@@ -1101,20 +1108,6 @@ html { overflow-x: hidden; overflow-y: scroll; }
 .sc-title { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sc-badge { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); padding: 3px 8px; border: 1px solid var(--line); border-radius: 99px; }
 .sc-stage { position: relative; height: 410px; padding: 22px 24px; overflow: hidden; }
-.sc-bottom { border-top: 1px solid var(--line); }
-.sc-caption { margin: 0; padding: 14px 18px 0; min-height: 3.2em; font-size: 14.5px; line-height: 1.5; color: var(--text-secondary); }
-.sc-controls { display: flex; align-items: center; gap: 10px; padding: 12px 14px 14px; }
-.sc-play { flex: none; width: 36px; height: 36px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface-1); color: var(--text-primary); display: grid; place-items: center; cursor: pointer; }
-.sc-play:hover { border-color: var(--text-muted); }
-.sc-play svg { width: 15px; height: 15px; }
-.sc-chapters { flex: 1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; min-width: 0; }
-.sc-chapter { display: grid; gap: 6px; padding: 0; border: 0; background: none; cursor: pointer; text-align: left; font: inherit; font-size: 12.5px; color: var(--text-muted); min-width: 0; }
-.sc-chapter span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sc-chapter.now { color: var(--text-primary); font-weight: 600; }
-.sc-chapter:hover { color: var(--text-primary); }
-.sc-chapter-bar { display: block; height: 3px; border-radius: 99px; background: var(--surface-3); overflow: hidden; }
-.sc-chapter-bar i { display: block; height: 100%; width: 0; background: var(--brand); border-radius: 99px; }
-.sc-chapter.past .sc-chapter-bar i { width: 100%; background: color-mix(in srgb, var(--brand) 40%, var(--surface-3)); }
 
 .sc-scene { height: 100%; animation: sc-in .45s ease both; }
 @keyframes sc-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
@@ -1260,8 +1253,6 @@ html { overflow-x: hidden; overflow-y: scroll; }
 @media (max-width: 700px) {
   .sc-stage { height: 470px; padding: 16px 14px; }
   .sc-week:nth-child(5) { display: none; }
-  .sc-chapters { gap: 5px; }
-  .sc-chapter { font-size: 11px; }
   .sc-teachgrid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .sc-qbars { height: 120px; }
   .sc-students { grid-template-columns: repeat(2, minmax(0, 1fr)); }
