@@ -27,6 +27,7 @@ from mentora.api.routes import (
     support,
     teacher,
 )
+from mentora.api.routes.support import email_missing_resolve_links
 from mentora.config import Settings, get_settings
 from mentora.db import StoreFactory, connect, ensure_schema
 from mentora.mail import make_mailer
@@ -60,11 +61,13 @@ def create_app(
     factory = session_factory
 
     @asynccontextmanager
-    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    async def lifespan(started: FastAPI) -> AsyncIterator[None]:
         if own_database:
             ensure_schema(factory.database)  # indexes (idempotent)
             with factory() as db:  # the starter question banks (adds only missing ones)
                 ensure_starter_questions(db)
+            with factory() as db:  # resolve links for requests raised before they existed
+                email_missing_resolve_links(db, settings, started.state.mailer)
         yield
 
     app = FastAPI(

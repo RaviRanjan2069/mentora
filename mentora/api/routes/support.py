@@ -62,12 +62,46 @@ def _hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def _new_link(request: Request, ticket: m.SupportTicket) -> str:
-    """A fresh private resolve link (the previous one stops working)."""
+def _link_for(settings: Settings, ticket: m.SupportTicket) -> str:
     token = secrets.token_urlsafe(32)
     ticket.resolve_token = _hash(token)
-    base = request.app.state.settings.public_base_url.rstrip("/")
-    return f"{base}/api/support/resolve/{ticket.id}?token={token}"
+    return f"{settings.public_base_url.rstrip('/')}/api/support/resolve/{ticket.id}?token={token}"
+
+
+def _new_link(request: Request, ticket: m.SupportTicket) -> str:
+    """A fresh private resolve link (the previous one stops working)."""
+    return _link_for(request.app.state.settings, ticket)
+
+
+def email_missing_resolve_links(db: Store, settings: Settings, mailer: Mailer) -> int:
+    """Open requests raised before resolve links existed get one, emailed to the support inbox
+    (once: a request that has a link is skipped). Run at start-up. Returns how many."""
+    inbox = _inbox(settings)
+    if not inbox:
+        return 0
+    sent = 0
+    for ticket in db.find(m.SupportTicket, {"status": "open", "resolve_token": None}):
+        account = db.get(m.Account, ticket.account_id)
+        if account is None:
+            continue
+        link = _link_for(settings, ticket)
+        if _send(
+            mailer,
+            inbox,
+            f"[{ticket.number}] resolve link: {ticket.subject}",
+            _inbox_text(
+                ticket,
+                account,
+                link,
+                f"Request {ticket.number} was sent before requests had a resolve link. Here it is.",
+            ),
+            reply_to=account.email,
+        ):
+            db.commit()
+            sent += 1
+        else:
+            db.rollback()
+    return sent
 
 
 def _send(mailer: Mailer, to: str, subject: str, text: str, reply_to: str | None = None) -> bool:

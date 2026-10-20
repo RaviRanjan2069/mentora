@@ -114,3 +114,22 @@ def test_resolve_from_the_inbox_link_and_reopen(app: FastAPI, outbox: Outbox) ->
     assert staff.get(path, params={"token": new.group(1)}).status_code == 200
     bob = signup(app, "bob")
     assert bob.post(f"/api/support/{t['number']}/reopen").status_code == 404
+
+
+def test_old_requests_get_a_resolve_link_once(app: FastAPI, outbox: Outbox) -> None:
+    from mentora.api.routes.support import email_missing_resolve_links
+    from mentora.db import models as m
+
+    asha = signup(app, "asha")
+    body = {"category": "bug", "subject": "Old request", "message": "Sent before links existed."}
+    asha.post("/api/support", json=body)
+    with app.state.session_factory() as db:  # as if raised before resolve links existed
+        db.collection(m.SupportTicket).update_many({}, {"$unset": {"resolve_token": ""}})
+    before = len(outbox.sent)
+    with app.state.session_factory() as db:
+        assert email_missing_resolve_links(db, app.state.settings, outbox) == 1
+    mail = outbox.sent[before]
+    assert mail[0] == "help@mentora.example" and "resolve link" in mail[1]
+    assert "/api/support/resolve/" in mail[2] and mail[3] == "asha@example.com"
+    with app.state.session_factory() as db:
+        assert email_missing_resolve_links(db, app.state.settings, outbox) == 0  # only once
