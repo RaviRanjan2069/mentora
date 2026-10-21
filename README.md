@@ -10,6 +10,15 @@ deterministic safety filter, off-policy evaluation, a fairness check and teacher
 > **Nothing has been evaluated with real learners.** The course content, quiz items,
 > history and policy results in this repository are synthetic or simulated.
 
+## Live demo
+
+**https://mentora-sdlb.onrender.com/app/**
+
+Create a free account as a student or a teacher. It is a demo on free hosting with synthetic
+starter content: the first visit after a quiet spell can take about a minute while the server
+wakes up, and the AI tutor answers only while its model host is online (otherwise it says so).
+Please do not enter sensitive information.
+
 ## Try it (no Docker, no API key)
 
 Needs a MongoDB server (local, default `mongodb://localhost:27017/mentora`, or Atlas).
